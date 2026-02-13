@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Link Bouquet</title>
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -10,6 +10,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -17,6 +18,7 @@
             overflow: hidden;
             background: #ffffff;
             transition: background-color 0.3s ease;
+            touch-action: none;
         }
 
         .container {
@@ -35,6 +37,7 @@
             z-index: 100;
             cursor: pointer;
             transition: transform 0.2s;
+            line-height: 0;
         }
 
         .logo:hover {
@@ -42,12 +45,11 @@
         }
 
         .logo img {
-            height: 120px; 
+            height: 120px;
             width: auto;
             object-fit: contain;
             display: block;
         }
-
 
         .info-icon {
             position: absolute;
@@ -133,7 +135,6 @@
             font-size: 12px;
         }
 
-        /* Link Card */
         .link-card {
             position: absolute;
             width: 200px;
@@ -145,6 +146,7 @@
             user-select: none;
             transform-origin: center center;
             z-index: 20;
+            touch-action: none;
         }
 
         .link-card:active {
@@ -187,7 +189,8 @@
             pointer-events: none;
         }
 
-        .link-card:hover .card-actions {
+        .link-card:hover .card-actions,
+        .link-card:active .card-actions {
             opacity: 1;
             pointer-events: all;
         }
@@ -232,7 +235,8 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .link-card:hover .resize-handle {
+        .link-card:hover .resize-handle,
+        .link-card:active .resize-handle {
             opacity: 1;
         }
 
@@ -764,28 +768,31 @@
         @media (max-width: 768px) {
             .sidebar {
                 position: fixed;
-                right: auto;
                 left: 50%;
-                top: auto;
                 bottom: 20px;
+                top: auto;
+                right: auto;
                 transform: translateX(-50%);
                 flex-direction: row;
-                width: auto;
+                width: calc(100% - 40px);
+                max-width: 400px;
                 gap: 8px;
                 background: rgba(255,255,255,0.95);
-                padding: 12px 16px;
+                padding: 12px;
                 border-radius: 16px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                justify-content: space-between;
             }
 
             .flower-selector {
-                width: 60px;
-                height: 70px;
+                width: 50px;
+                height: 60px;
+                flex-shrink: 0;
             }
 
             .color-buttons {
-                flex-direction: column;
-                gap: 4px;
+                flex-direction: row;
+                gap: 6px;
             }
 
             .color-btn {
@@ -795,8 +802,11 @@
 
             .action-btn {
                 width: auto;
-                padding: 10px 16px;
-                font-size: 12px;
+                padding: 10px 12px;
+                font-size: 11px;
+                flex: 1;
+                min-width: 0;
+                white-space: nowrap;
             }
 
             .color-picker-panel {
@@ -807,8 +817,13 @@
                 width: 280px;
             }
 
+            .logo {
+                top: 15px;
+                left: 15px;
+            }
+
             .logo img {
-                height: 80px;
+                height: 60px;
             }
 
             .info-icon {
@@ -816,17 +831,19 @@
                 right: 15px;
                 width: 36px;
                 height: 36px;
+                font-size: 18px;
             }
 
             .canvas-area {
                 width: 100%;
-                height: 60vh;
-                padding: 0 20px;
+                height: calc(100vh - 180px);
+                padding: 60px 10px 100px 10px;
             }
 
             .welcome-message {
-                max-width: 240px;
+                max-width: 260px;
                 padding: 16px;
+                width: 90%;
             }
 
             .welcome-message h3 {
@@ -844,27 +861,48 @@
             }
 
             .link-card {
-                width: 160px;
-                height: 112px;
+                width: 140px;
+                height: 100px;
+            }
+
+            .card-title {
+                font-size: 10px;
+                padding: 16px 8px 6px;
+            }
+
+            .delete-btn,
+            .resize-handle {
+                width: 24px;
+                height: 24px;
+                opacity: 1;
+            }
+
+            .decorative-flower {
+                width: 40px;
+                height: 40px;
+                bottom: 100px;
+                left: 15px;
             }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 380px) {
             .sidebar {
-                left: 10px;
-                right: 10px;
-                justify-content: center;
-                flex-wrap: wrap;
+                padding: 10px 8px;
+                gap: 6px;
             }
 
             .flower-selector {
-                width: 50px;
-                height: 60px;
+                width: 45px;
+                height: 55px;
             }
 
             .action-btn {
-                padding: 8px 12px;
-                font-size: 11px;
+                padding: 8px 10px;
+                font-size: 10px;
+            }
+
+            .logo img {
+                height: 50px;
             }
         }
     </style>
@@ -872,13 +910,12 @@
 <body>
     <div class="container" id="mainContainer">
         <div class="logo" id="logo">
-            <img src="logo.png" alt="Link Bouquet" style="height: 240px; width: auto; object-fit: contain;">
+            <img src="logo.png" alt="Link Bouquet">
         </div>
 
         <div class="info-icon" id="infoIcon">i</div>
 
         <div class="canvas-area" id="canvasArea">
-            <!-- Первый букет из массива (индекс 0) -->
             <img src="flowers/flower1.png" 
                  alt="Flower Bouquet" 
                  class="bouquet-image" 
@@ -894,7 +931,6 @@
 
         <div class="sidebar">
             <div class="flower-selector" id="flowerSelector">
-                <!-- Второй букет из массива (индекс 1) - превью следующего -->
                 <img src="flowers/flower2.png" 
                      alt="Change Flower" 
                      id="selectorImage">
@@ -952,7 +988,6 @@
         </svg>
     </div>
 
-    <!-- Add Link Modal -->
     <div class="modal-overlay" id="addLinkModal">
         <div class="modal">
             <div class="modal-header">
@@ -969,7 +1004,6 @@
         </div>
     </div>
 
-    <!-- Share Modal -->
     <div class="modal-overlay" id="shareModal">
         <div class="modal share-modal">
             <div class="modal-header">
@@ -991,7 +1025,6 @@
         </div>
     </div>
 
-    <!-- Result Modal -->
     <div class="modal-overlay" id="resultModal">
         <div class="modal result-modal">
             <div class="modal-header">
@@ -1006,7 +1039,6 @@
         </div>
     </div>
 
-    <!-- Info Modal -->
     <div class="modal-overlay" id="infoModal">
         <div class="modal info-modal">
             <div class="info-content">
@@ -1022,11 +1054,9 @@
         </div>
     </div>
 
-    <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
     <script>
-        // State
         var links = [];
         var currentFlowerIndex = 0;
         var currentBg = '#ffffff';
@@ -1039,23 +1069,25 @@
         var dragOffsetY = 0;
         var hasDragged = false;
         var cardPositions = [];
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var initialCardX = 0;
+        var initialCardY = 0;
 
-        // 10 букетов
-var flowerImages = [
-    'flowers/flower1.png',
-    'flowers/flower2.png',
-    'flowers/flower3.png',
-    'flowers/flower4.png',
-    'flowers/flower5.png',
-    'flowers/flower6.png',
-    'flowers/flower7.png',
-    'flowers/flower8.png',
-    'flowers/flower9.png',
-    'flowers/flower10.png',
-    'flowers/flower11.png'
-];
+        var flowerImages = [
+            'flowers/flower1.png',
+            'flowers/flower2.png',
+            'flowers/flower3.png',
+            'flowers/flower4.png',
+            'flowers/flower5.png',
+            'flowers/flower6.png',
+            'flowers/flower7.png',
+            'flowers/flower8.png',
+            'flowers/flower9.png',
+            'flowers/flower10.png',
+            'flowers/flower11.png'
+        ];
 
-        // DOM elements
         var welcomeMessage = document.getElementById('welcomeMessage');
         var flowerSelector = document.getElementById('flowerSelector');
         var btnPink = document.getElementById('btnPink');
@@ -1086,7 +1118,6 @@ var flowerImages = [
         var btnCloseInfo = document.getElementById('btnCloseInfo');
         var toast = document.getElementById('toast');
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             logo.addEventListener('click', resetToHome);
             welcomeMessage.addEventListener('click', handleWelcomeClick);
@@ -1113,6 +1144,8 @@ var flowerImages = [
             document.addEventListener('paste', handlePaste);
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
 
             addLinkModal.addEventListener('click', function(e) {
                 if (e.target === addLinkModal) closeAddLinkModal();
@@ -1173,9 +1206,7 @@ var flowerImages = [
             }
         }
 
-        function handleKeyDown(e) {
-            // Ctrl+V или Cmd+V обрабатывается через paste event
-        }
+        function handleKeyDown(e) {}
 
         async function checkClipboardAndCreate(x, y) {
             try {
@@ -1200,7 +1231,6 @@ var flowerImages = [
             }
         }
 
-        // Fetch metadata using Microlink
         async function fetchMetadata(url) {
             try {
                 const response = await fetch('https://api.microlink.io/?url=' + encodeURIComponent(url));
@@ -1217,7 +1247,6 @@ var flowerImages = [
                 console.error('Fetch error:', e);
             }
             
-            // Fallback
             try {
                 var urlObj = new URL(url);
                 var domain = urlObj.hostname.replace('www.', '');
@@ -1252,12 +1281,12 @@ var flowerImages = [
             
             for (var i = 0; i < 20; i++) {
                 var angle = (i / 20) * Math.PI * 2;
-                var radius = 150 + Math.random() * 200;
+                var radius = 100 + Math.random() * 150;
                 var testX = centerX + Math.cos(angle) * radius;
                 var testY = centerY + Math.sin(angle) * radius;
                 
-                testX = Math.max(120, Math.min(canvasRect.width - 120, testX));
-                testY = Math.max(100, Math.min(canvasRect.height - 100, testY));
+                testX = Math.max(80, Math.min(canvasRect.width - 80, testX));
+                testY = Math.max(80, Math.min(canvasRect.height - 80, testY));
                 
                 var totalOverlap = 0;
                 for (var j = 0; j < cardPositions.length; j++) {
@@ -1265,7 +1294,7 @@ var flowerImages = [
                     var dx = testX - pos.x;
                     var dy = testY - pos.y;
                     var distance = Math.sqrt(dx*dx + dy*dy);
-                    var overlap = Math.max(0, 170 - distance);
+                    var overlap = Math.max(0, 120 - distance);
                     totalOverlap += overlap;
                 }
                 
@@ -1409,9 +1438,12 @@ var flowerImages = [
             }
         }
 
-        // Create Link Card
         async function createLinkCard(url, x, y, scale, rotation) {
             var canvasRect = canvasArea.getBoundingClientRect();
+
+            var isMobile = window.innerWidth <= 768;
+            var cardWidth = isMobile ? 140 : 200;
+            var cardHeight = isMobile ? 100 : 140;
 
             var pos;
             if (x !== undefined && y !== undefined) {
@@ -1422,7 +1454,7 @@ var flowerImages = [
             
             cardPositions.push(pos);
             
-            var cardScale = scale || (0.9 + Math.random() * 0.3);
+            var cardScale = scale || (isMobile ? 0.8 + Math.random() * 0.2 : 0.9 + Math.random() * 0.3);
             var cardRotation = rotation || (Math.random() - 0.5) * 20;
 
             var card = document.createElement('div');
@@ -1430,9 +1462,10 @@ var flowerImages = [
             card.dataset.url = url;
             card.style.left = pos.x + 'px';
             card.style.top = pos.y + 'px';
+            card.style.width = cardWidth + 'px';
+            card.style.height = cardHeight + 'px';
             card.style.transform = 'translate(-50%, -50%) rotate(' + cardRotation + 'deg) scale(' + cardScale + ')';
 
-            // Loading state
             card.innerHTML = 
                 '<div class="loading-state">⟳</div>' +
                 '<div class="card-actions">' +
@@ -1444,7 +1477,6 @@ var flowerImages = [
                     '</svg>' +
                 '</div>';
 
-            // Event listeners
             var deleteBtn = card.querySelector('.delete-btn');
             var resizeHandle = card.querySelector('.resize-handle');
 
@@ -1455,18 +1487,13 @@ var flowerImages = [
 
             card.addEventListener('mousedown', function(e) {
                 if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
-                
-                isDragging = true;
-                draggedElement = card;
-                hasDragged = false;
-                
-                var rect = card.getBoundingClientRect();
-                var canvasRect = canvasArea.getBoundingClientRect();
-                dragOffsetX = e.clientX - rect.left - rect.width/2;
-                dragOffsetY = e.clientY - rect.top - rect.height/2;
-                
-                card.classList.add('dragging');
+                startDrag(e, card);
             });
+
+            card.addEventListener('touchstart', function(e) {
+                if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
+                startDrag(e, card);
+            }, { passive: false });
 
             card.addEventListener('click', function(e) {
                 if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
@@ -1482,9 +1509,15 @@ var flowerImages = [
                 resizeElement = card;
             });
 
+            resizeHandle.addEventListener('touchstart', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                isResizing = true;
+                resizeElement = card;
+            }, { passive: false });
+
             canvasArea.appendChild(card);
 
-            // Fetch metadata and update card
             var meta = await fetchMetadata(url);
             updateCardContent(card, meta, url);
 
@@ -1499,6 +1532,27 @@ var flowerImages = [
             welcomeMessage.style.display = 'none';
             canvasArea.classList.add('has-cards');
             saveShareBtn.classList.add('active');
+        }
+
+        function startDrag(e, card) {
+            e.preventDefault();
+            isDragging = true;
+            draggedElement = card;
+            hasDragged = false;
+            
+            var clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            var clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            
+            var rect = card.getBoundingClientRect();
+            var canvasRect = canvasArea.getBoundingClientRect();
+            
+            dragOffsetX = clientX - rect.left - rect.width/2;
+            dragOffsetY = clientY - rect.top - rect.height/2;
+            
+            initialCardX = parseFloat(card.style.left);
+            initialCardY = parseFloat(card.style.top);
+            
+            card.classList.add('dragging');
         }
 
         function updateCardContent(card, meta, url) {
@@ -1517,7 +1571,6 @@ var flowerImages = [
                     '</svg>' +
                 '</div>';
 
-            // Re-attach events
             card.querySelector('.delete-btn').addEventListener('click', function(e) {
                 e.stopPropagation();
                 var idx = cardPositions.findIndex(p => {
@@ -1528,12 +1581,20 @@ var flowerImages = [
                 deleteCard(card, idx > -1 ? cardPositions[idx] : null);
             });
 
-            card.querySelector('.resize-handle').addEventListener('mousedown', function(e) {
+            var resizeHandle = card.querySelector('.resize-handle');
+            resizeHandle.addEventListener('mousedown', function(e) {
                 e.stopPropagation();
                 e.preventDefault();
                 isResizing = true;
                 resizeElement = card;
             });
+
+            resizeHandle.addEventListener('touchstart', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                isResizing = true;
+                resizeElement = card;
+            }, { passive: false });
         }
 
         function deleteCard(card, pos) {
@@ -1561,8 +1622,14 @@ var flowerImages = [
                 var newX = e.clientX - canvasRect.left - dragOffsetX;
                 var newY = e.clientY - canvasRect.top - dragOffsetY;
                 
-                newX = Math.max(120, Math.min(canvasRect.width - 120, newX));
-                newY = Math.max(100, Math.min(canvasRect.height - 100, newY));
+                var isMobile = window.innerWidth <= 768;
+                var minX = isMobile ? 70 : 120;
+                var minY = isMobile ? 70 : 100;
+                var maxX = isMobile ? canvasRect.width - 70 : canvasRect.width - 120;
+                var maxY = isMobile ? canvasRect.height - 70 : canvasRect.height - 100;
+                
+                newX = Math.max(minX, Math.min(maxX, newX));
+                newY = Math.max(minY, Math.min(maxY, newY));
                 
                 draggedElement.style.left = newX + 'px';
                 draggedElement.style.top = newY + 'px';
@@ -1587,6 +1654,53 @@ var flowerImages = [
             }
         }
 
+        function handleTouchMove(e) {
+            if (isDragging && draggedElement) {
+                e.preventDefault();
+                hasDragged = true;
+                
+                var touch = e.touches[0];
+                var canvasRect = canvasArea.getBoundingClientRect();
+                var newX = touch.clientX - canvasRect.left - dragOffsetX;
+                var newY = touch.clientY - canvasRect.top - dragOffsetY;
+                
+                var isMobile = window.innerWidth <= 768;
+                var minX = isMobile ? 70 : 120;
+                var minY = isMobile ? 70 : 100;
+                var maxX = isMobile ? canvasRect.width - 70 : canvasRect.width - 120;
+                var maxY = isMobile ? canvasRect.height - 70 : canvasRect.height - 100;
+                
+                newX = Math.max(minX, Math.min(maxX, newX));
+                newY = Math.max(minY, Math.min(maxY, newY));
+                
+                draggedElement.style.left = newX + 'px';
+                draggedElement.style.top = newY + 'px';
+            }
+
+            if (isResizing && resizeElement) {
+                e.preventDefault();
+                
+                var touch = e.touches[0];
+                var rect = resizeElement.getBoundingClientRect();
+                var centerX = rect.left + rect.width / 2;
+                var centerY = rect.top + rect.height / 2;
+                
+                var distance = Math.sqrt(
+                    Math.pow(touch.clientX - centerX, 2) + 
+                    Math.pow(touch.clientY - centerY, 2)
+                );
+                
+                var baseDistance = Math.sqrt(Math.pow(rect.width, 2) + Math.pow(rect.height, 2)) / 2;
+                var newScale = Math.max(0.5, Math.min(3, distance / baseDistance));
+                
+                var transform = resizeElement.style.transform;
+                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
+                var rotation = rotateMatch ? rotateMatch[1] : '0deg';
+                
+                resizeElement.style.transform = 'translate(-50%, -50%) rotate(' + rotation + ') scale(' + newScale + ')';
+            }
+        }
+
         function handleMouseUp() {
             if (draggedElement) {
                 draggedElement.classList.remove('dragging');
@@ -1600,6 +1714,10 @@ var flowerImages = [
             isResizing = false;
             draggedElement = null;
             resizeElement = null;
+        }
+
+        function handleTouchEnd() {
+            handleMouseUp();
         }
 
         function openShareModal() {
