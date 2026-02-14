@@ -151,6 +151,7 @@
             transform-origin: center center;
             z-index: 20;
             touch-action: none;
+            background: white;
         }
 
         .link-card.read-only {
@@ -175,6 +176,7 @@
             height: 100%;
             object-fit: cover;
             pointer-events: none;
+            display: block;
         }
 
         .card-title {
@@ -1139,6 +1141,7 @@
         var initialCardX = 0;
         var initialCardY = 0;
         var isReadOnly = false;
+        var pendingLinks = []; // Очередь ссылок для загрузки
 
         var flowerImagesWebP = [
             'webp/flower1.webp',
@@ -1211,8 +1214,15 @@
         var sidebar = document.getElementById('sidebar');
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('bouquetImage').src = flowerImages[0];
-            document.getElementById('selectorImage').src = flowerImages[1];
+            // Сначала проверяем URL параметры
+            var hasBouquetData = loadFromURL();
+            
+            // Если нет данных букета, показываем начальное состояние
+            if (!hasBouquetData) {
+                document.getElementById('bouquetImage').src = flowerImages[0];
+                document.getElementById('selectorImage').src = flowerImages[1];
+            }
+            
             logo.addEventListener('click', resetToHome);
             welcomeMessage.addEventListener('click', handleWelcomeClick);
             flowerSelector.addEventListener('click', changeFlower);
@@ -1256,8 +1266,6 @@
             infoModal.addEventListener('click', function(e) {
                 if (e.target === infoModal) closeInfoModal();
             });
-
-            loadFromURL();
         });
 
         function closeResultModal() {
@@ -1540,9 +1548,9 @@
             }
         }
 
-        async function createLinkCard(url, x, y, scale, rotation) {
+        // Создаем карточку синхронно, без ожидания метаданных
+        function createLinkCard(url, x, y, scale, rotation) {
             var canvasRect = canvasArea.getBoundingClientRect();
-
             var isMobile = window.innerWidth <= 768;
             var cardWidth = isMobile ? 140 : 200;
             var cardHeight = isMobile ? 100 : 140;
@@ -1569,6 +1577,13 @@
             card.style.height = cardHeight + 'px';
             card.style.transform = 'translate(-50%, -50%) scale(' + cardScale + ')';
 
+            // Создаем базовую структуру карточки сразу
+            var domain = '';
+            try {
+                var urlObj = new URL(url);
+                domain = urlObj.hostname.replace('www.', '');
+            } catch(e) {}
+
             var actionsHtml = isReadOnly ? '' : 
                 '<div class="card-actions">' +
                     '<button class="delete-btn" title="Remove">✕</button>' +
@@ -1579,18 +1594,39 @@
                     '</svg>' +
                 '</div>';
 
+            // Показываем сразу с favicon и заголовком домена
+            var faviconUrl = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128';
             card.innerHTML = 
-                '<div class="loading-state">⟳</div>' +
+                '<img class="card-image" src="' + faviconUrl + '" alt="" onerror="this.style.display=\'none\'">' +
+                '<div class="card-title">' + (domain || url) + '</div>' +
                 actionsHtml;
 
+            // Добавляем обработчики
             if (!isReadOnly) {
                 var deleteBtn = card.querySelector('.delete-btn');
-                var resizeHandle = card.querySelector('.resize-handle');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        deleteCard(card, pos);
+                    });
+                }
 
-                deleteBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    deleteCard(card, pos);
-                });
+                var resizeHandle = card.querySelector('.resize-handle');
+                if (resizeHandle) {
+                    resizeHandle.addEventListener('mousedown', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        isResizing = true;
+                        resizeElement = card;
+                    });
+
+                    resizeHandle.addEventListener('touchstart', function(e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        isResizing = true;
+                        resizeElement = card;
+                    }, { passive: false });
+                }
 
                 card.addEventListener('mousedown', function(e) {
                     if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
@@ -1600,20 +1636,6 @@
                 card.addEventListener('touchstart', function(e) {
                     if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
                     startDrag(e, card);
-                }, { passive: false });
-
-                resizeHandle.addEventListener('mousedown', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    isResizing = true;
-                    resizeElement = card;
-                });
-
-                resizeHandle.addEventListener('touchstart', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    isResizing = true;
-                    resizeElement = card;
                 }, { passive: false });
             }
 
@@ -1626,8 +1648,12 @@
 
             canvasArea.appendChild(card);
 
-            var meta = await fetchMetadata(url);
-            updateCardContent(card, meta, url);
+            // Асинхронно загружаем метаданные и обновляем карточку
+            fetchMetadata(url).then(function(meta) {
+                updateCardContent(card, meta, url);
+            }).catch(function(err) {
+                console.error('Failed to fetch metadata:', err);
+            });
 
             links.push({ 
                 url: url, 
@@ -1639,7 +1665,9 @@
 
             welcomeMessage.style.display = 'none';
             canvasArea.classList.add('has-cards');
-            saveShareBtn.classList.add('active');
+            if (!isReadOnly) {
+                saveShareBtn.classList.add('active');
+            }
         }
 
         function startDrag(e, card) {
@@ -1665,49 +1693,19 @@
         }
 
         function updateCardContent(card, meta, url) {
+            // Обновляем только изображение и заголовок, не пересоздаем всю карточку
             var imageUrl = meta.image || 'https://www.google.com/s2/favicons?domain=' + meta.domain + '&sz=128';
+            var title = meta.title || meta.domain || url;
             
-            var actionsHtml = isReadOnly ? '' : 
-                '<div class="card-actions">' +
-                    '<button class="delete-btn" title="Remove">✕</button>' +
-                '</div>' +
-                '<div class="resize-handle">' +
-                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-                        '<path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>' +
-                    '</svg>' +
-                '</div>';
-
-            card.innerHTML = 
-                '<img class="card-image" src="' + imageUrl + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\'" alt="">' +
-                '<div class="error-state" style="display: none;">' + meta.title + '</div>' +
-                '<div class="card-title">' + meta.title + '</div>' +
-                actionsHtml;
-
-            if (!isReadOnly) {
-                card.querySelector('.delete-btn').addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var idx = cardPositions.findIndex(p => {
-                        var cardX = parseFloat(card.style.left);
-                        var cardY = parseFloat(card.style.top);
-                        return Math.abs(p.x - cardX) < 10 && Math.abs(p.y - cardY) < 10;
-                    });
-                    deleteCard(card, idx > -1 ? cardPositions[idx] : null);
-                });
-
-                var resizeHandle = card.querySelector('.resize-handle');
-                resizeHandle.addEventListener('mousedown', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    isResizing = true;
-                    resizeElement = card;
-                });
-
-                resizeHandle.addEventListener('touchstart', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    isResizing = true;
-                    resizeElement = card;
-                }, { passive: false });
+            var img = card.querySelector('.card-image');
+            var titleEl = card.querySelector('.card-title');
+            
+            if (img) {
+                img.src = imageUrl;
+                img.style.display = 'block';
+            }
+            if (titleEl) {
+                titleEl.textContent = title;
             }
         }
 
@@ -1807,7 +1805,6 @@
                 var baseDistance = Math.sqrt(Math.pow(rect.width, 2) + Math.pow(rect.height, 2)) / 2;
                 var newScale = Math.max(0.5, Math.min(3, distance / baseDistance));
                 
-                var transform = resizeElement.style.transform;
                 resizeElement.style.transform = 'translate(-50%, -50%) scale(' + newScale + ')';
             }
         }
@@ -1899,7 +1896,26 @@
 
         async function shareOrCopy() {
             var url = document.getElementById('shareUrlInput').value;
+            var from = document.getElementById('fromInput').value.trim() || 'Anon';
+            var to = document.getElementById('toInput').value.trim() || 'You';
             
+            // Пробуем использовать Web Share API для мобильных устройств
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Link Bouquet from ' + from + ' to ' + to,
+                        text: from + ' curated a bouquet of links for ' + to,
+                        url: url
+                    });
+                    showToast('Shared successfully!');
+                    return;
+                } catch (err) {
+                    // Если пользователь отменил или произошла ошибка, переходим к копированию
+                    console.log('Share canceled or failed:', err);
+                }
+            }
+            
+            // Fallback на копирование в буфер обмена
             try {
                 await navigator.clipboard.writeText(url);
                 copyBtn.textContent = 'Скопировано';
@@ -1937,8 +1953,8 @@
                 .replace(/av~/, 'avito.ru/')
                 .replace(/~c$/, '.com')
                 .replace(/~r$/, '.ru')
-                .replace(/~n$/, '.net')
-                .replace(/~o$/, '.org');
+                .replace(/~net$/, '.net')
+                .replace(/~org$/, '.org');
             
             if (!url.startsWith('http')) {
                 url = 'https://' + url;
@@ -1950,10 +1966,13 @@
             var params = new URLSearchParams(window.location.search);
             var data = params.get('b');
             
-            if (!data) return;
+            if (!data) return false;
             
             try {
+                console.log('Loading bouquet data:', data);
                 var parts = data.split('-');
+                console.log('Parts:', parts);
+                
                 if (parts.length < 2) throw new Error('Invalid format');
                 
                 currentFlowerIndex = parseInt(parts[0]) || 0;
@@ -1969,40 +1988,71 @@
                 var from = '', to = '';
                 var urlIndex = 2;
                 
-                if (parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~') && !parts[2].includes('.')) {
+                // Проверяем, есть ли имена отправителя/получателя
+                // Имя не должно содержать ! ~ . и должно быть коротким
+                if (parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~') && parts[2].length < 20) {
                     from = parts[2];
                     urlIndex = 3;
                 }
-                if (parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~') && !parts[3].includes('.')) {
+                if (parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~') && parts[3].length < 20) {
                     to = parts[3];
                     urlIndex = 4;
                 }
                 
+                // Собираем все оставшиеся части в строку ссылок
+                var urlPart = parts.slice(urlIndex).join('-');
+                console.log('URL part:', urlPart);
+                
+                // Скрываем приветственное сообщение сразу
+                welcomeMessage.style.display = 'none';
+                canvasArea.classList.add('has-cards');
+                
+                // Устанавливаем режим только для чтения
                 setupReadOnlyMode(from, to);
                 document.body.style.backgroundColor = currentBg;
                 
-                var urlPart = parts.slice(urlIndex - 1).join('-');
-                
+                // Парсим и создаем карточки
                 if (urlPart && urlPart.includes('!')) {
                     var compressedUrls = urlPart.split('!');
-                    compressedUrls.forEach(function(comp) {
+                    console.log('Compressed URLs:', compressedUrls);
+                    
+                    compressedUrls.forEach(function(comp, index) {
+                        if (!comp.trim()) return;
+                        
                         var urlParts = comp.split('.');
-                        var url = decompressURL(urlParts[0]);
+                        console.log('URL parts for card ' + index + ':', urlParts);
+                        
+                        // Минимум 4 части: url, x, y, scale
                         if (urlParts.length >= 4) {
+                            var compressedUrl = urlParts[0];
                             var x = parseInt(urlParts[1]);
                             var y = parseInt(urlParts[2]);
                             var s = parseInt(urlParts[3]) / 10;
-                            createLinkCard(url, x, y, s, 0);
+                            
+                            var url = decompressURL(compressedUrl);
+                            console.log('Creating card:', url, x, y, s);
+                            
+                            if (url && !isNaN(x) && !isNaN(y) && !isNaN(s)) {
+                                createLinkCard(url, x, y, s, 0);
+                            } else {
+                                console.error('Invalid card data:', url, x, y, s);
+                            }
                         } else {
-                            createLinkCard(url);
+                            console.error('Not enough parts in URL:', comp);
                         }
                     });
+                } else {
+                    console.error('No URLs found in data');
                 }
                 
+                // Показываем модальное окно подарка
                 showGiftModal(from || 'Аноним', to || 'вас');
+                
+                return true;
                 
             } catch (e) {
                 console.error('Failed to load bouquet:', e);
+                return false;
             }
         }
 
@@ -2016,6 +2066,10 @@
                 document.getElementById('selectorImage').src = flowerImages[currentFlowerIndex];
                 currentBg = data.bg || '#ffffff';
                 document.body.style.backgroundColor = currentBg;
+
+                // Скрываем приветственное сообщение
+                welcomeMessage.style.display = 'none';
+                canvasArea.classList.add('has-cards');
 
                 if (data.links && data.links.length > 0) {
                     data.links.forEach(function(link) {
@@ -2032,16 +2086,27 @@
 
         function setupReadOnlyMode(from, to) {
             isReadOnly = true;
+            
+            // Скрываем приветственное сообщение
+            welcomeMessage.style.display = 'none';
+            canvasArea.classList.add('has-cards');
+            
+            // Меняем сайдбар на кнопку создания нового букета
             sidebar.innerHTML = 
                 '<button class="action-btn create-own-btn" id="btnCreateOwn">' +
                     'Создать<br>свой букет' +
                 '</button>';
             document.getElementById('btnCreateOwn').addEventListener('click', createNew);
             
+            // Скрываем иконку информации
             infoIcon.style.display = 'none';
         }
 
         function showGiftModal(from, to) {
+            // Удаляем существующее модальное окно если есть
+            var existingModal = document.getElementById('giftModal');
+            if (existingModal) existingModal.remove();
+            
             var modal = document.createElement('div');
             modal.className = 'modal-overlay active';
             modal.id = 'giftModal';
@@ -2050,18 +2115,30 @@
                     '<div class="info-content">' +
                         '<div class="info-icon-large">💝</div>' +
                         '<h3>Специальный букет для вас</h3>' +
-                        '<p style="font-size: 18px; color: #e91e63; margin: 20px 0;"><strong>' + from + '</strong> to <strong>' + to + '</strong></p>' +
+                        '<p style="font-size: 18px; color: #e91e63; margin: 20px 0;"><strong>' + escapeHtml(from) + '</strong> to <strong>' + escapeHtml(to) + '</strong></p>' +
                         '<p>Кто-то подготовил подборку именно для вас!</p>' +
                         '<div class="modal-actions" style="margin-top: 24px; justify-content: center;">' +
-                            '<button class="modal-btn modal-btn-primary" onclick="document.getElementById(\'giftModal\').remove()" style="padding: 12px 32px;">Открыть букет</button>' +
+                            '<button class="modal-btn modal-btn-primary" id="btnOpenGift" style="padding: 12px 32px;">Открыть букет</button>' +
                         '</div>' +
                     '</div>' +
                 '</div>';
             document.body.appendChild(modal);
             
+            // Обработчик кнопки
+            document.getElementById('btnOpenGift').addEventListener('click', function() {
+                modal.remove();
+            });
+            
+            // Закрытие по клику вне модалки
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) modal.remove();
             });
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
