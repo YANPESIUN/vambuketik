@@ -46,7 +46,7 @@
         }
 
         .logo img {
-            height: 120px;
+            height: 480px;
             width: auto;
             object-fit: contain;
             display: block;
@@ -193,8 +193,7 @@
             pointer-events: none;
         }
 
-        .link-card:hover .card-actions,
-        .link-card:active .card-actions {
+        .link-card:hover .card-actions {
             opacity: 1;
             pointer-events: all;
         }
@@ -244,8 +243,7 @@
             z-index: 10;
         }
 
-        .link-card:hover .resize-handle,
-        .link-card:active .resize-handle {
+        .link-card:hover .resize-handle {
             opacity: 1;
         }
 
@@ -833,7 +831,7 @@
             }
 
             .logo img {
-                height: 60px;
+                height: 120px;
             }
 
             .info-icon {
@@ -881,23 +879,32 @@
                 padding: 16px 8px 6px;
             }
 
+            /* ИСПРАВЛЕНО: кнопки всегда видны на мобильных */
+            .card-actions {
+                opacity: 1;
+                pointer-events: all;
+                width: 40px;
+                height: 40px;
+            }
+
             .delete-btn,
             .resize-handle {
-                width: 32px;
-                height: 32px;
                 opacity: 1;
+                width: 28px;
+                height: 28px;
             }
 
             .delete-btn {
-                top: 6px;
-                right: 6px;
+                top: 4px;
+                right: 4px;
                 font-size: 14px;
             }
 
             .resize-handle {
-                bottom: 6px;
-                right: 6px;
+                bottom: 4px;
+                right: 4px;
             }
+
             .decorative-flower {
                 width: 40px;
                 height: 40px;
@@ -923,7 +930,7 @@
             }
 
             .logo img {
-                height: 50px;
+                height: 100px;
             }
         }
     </style>
@@ -1760,36 +1767,35 @@
             else if (currentBg === '#dc143c' || currentBg === 'red') bgCode = 'r';
             else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c';
             
-            // Собираем сжатые URLы
-           // Собираем сжатые URLы с позициями
-        var urls = [];
-        document.querySelectorAll('.link-card').forEach(function(card) {
-            var url = card.dataset.url;
-            var left = Math.round(parseFloat(card.style.left));
-            var top = Math.round(parseFloat(card.style.top));
-            var transform = card.style.transform;
-            var scaleMatch = transform.match(/scale\(([^)]+)\)/);
-            var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
-            var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
-            var r = rotateMatch ? Math.round(parseFloat(rotateMatch[1])) : 0;
-            
-            var compressed = url
-                .replace(/^https?:\/\//, '')
-                .replace(/^www\./, '')
-                .replace(/\.com$/, '~c')
-                .replace(/\.ru$/, '~r')
-                .replace(/\.net$/, '~n')
-                .replace(/\.org$/, '~o')
-                .replace(/youtube\.com\/watch\?v=/, 'yt~')
-                .replace(/youtu\.be\//, 'yt~')
-                .replace(/spotify\.com\/track\//, 'sp~')
-                .replace(/tiktok\.com\//, 'tt~')
-                .replace(/instagram\.com\//, 'ig~')
-                .replace(/avito\.ru\//, 'av~');
-            
-            // Формат: url@x,y,s,r
-            urls.push(compressed + '@' + left + ',' + top + ',' + s + ',' + r);
-        });
+            // Собираем сжатые URLы с позициями
+            var urls = [];
+            document.querySelectorAll('.link-card').forEach(function(card) {
+                var url = card.dataset.url;
+                var left = Math.round(parseFloat(card.style.left));
+                var top = Math.round(parseFloat(card.style.top));
+                var transform = card.style.transform;
+                var scaleMatch = transform.match(/scale\(([^)]+)\)/);
+                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
+                var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
+                var r = rotateMatch ? Math.round(parseFloat(rotateMatch[1])) : 0;
+                
+                var compressed = url
+                    .replace(/^https?:\/\//, '')
+                    .replace(/^www\./, '')
+                    .replace(/\.com$/, '~c')
+                    .replace(/\.ru$/, '~r')
+                    .replace(/\.net$/, '~n')
+                    .replace(/\.org$/, '~o')
+                    .replace(/youtube\.com\/watch\?v=/, 'yt~')
+                    .replace(/youtu\.be\//, 'yt~')
+                    .replace(/spotify\.com\/track\//, 'sp~')
+                    .replace(/tiktok\.com\//, 'tt~')
+                    .replace(/instagram\.com\//, 'ig~')
+                    .replace(/avito\.ru\//, 'av~');
+                
+                // Формат: url@x,y,s,r
+                urls.push(compressed + '@' + left + ',' + top + ',' + s + ',' + r);
+            });
             
             // Формат: f3-p-Mike-Anna-url1~url2~url3
             var parts = ['f' + currentFlowerIndex, bgCode];
@@ -1857,78 +1863,85 @@
             btnPink.classList.add('active');
         }
 
-function loadFromURL() {
-    var params = new URLSearchParams(window.location.search);
-    var data = params.get('b') || params.get('bouquet');
-    
-    if (!data) return;
-    
-    // Поддержка старых ссылок
-    if (params.get('bouquet')) {
-        loadOldFormat(params.get('bouquet'));
-        return;
-    }
-    
-    try {
-        var parts = data.split('-');
-        if (parts.length < 2) throw new Error('Invalid format');
-        
-        // Парсим букет и цвет
-        currentFlowerIndex = parseInt(parts[0].replace('f', '')) || 0;
-        var bgMap = {'p': '#ffb6c1', 'r': '#dc143c', 'w': '#ffffff', 'c': currentBg};
-        currentBg = bgMap[parts[1]] || '#ffffff';
-        
-        document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
-        document.getElementById('selectorImage').src = flowerImages[(currentFlowerIndex + 1) % flowerImages.length];
-        document.body.style.backgroundColor = currentBg;
-        
-        // Определяем где URLы (последняя часть с ~)
-        var urlPart = parts[parts.length - 1];
-        var from = 'Anonymous';
-        var to = 'Someone special';
-        
-        // Если частей 3+: f3-p-urls (без имен)
-        // Если частей 4+: f3-p-Mike-urls или f3-p-Mike-Anna-urls
-        if (parts.length === 4 && !parts[2].includes('~')) {
-            from = parts[2];
-        } else if (parts.length >= 5) {
-            from = parts[2];
-            to = parts[3];
-        }
-        
-        // Распаковываем URLы
-        if (urlPart && urlPart.includes('~')) {
-            var compressedUrls = urlPart.split('~');
-            compressedUrls.forEach(function(comp) {
-                var parts = comp.split('@');
-                var url = decompressURL(parts[0]);
-                var coords = parts[1] ? parts[1].split(',') : null;
-                if (coords && coords.length === 4) {
-                    var x = parseInt(coords[0]);
-                    var y = parseInt(coords[1]);
-                    var s = parseInt(coords[2]) / 10;
-                    var r = parseInt(coords[3]);
-                    createLinkCard(url, x, y, s, r);
-                } else {
-                    createLinkCard(url);
+        function loadFromURL() {
+            var params = new URLSearchParams(window.location.search);
+            var data = params.get('b') || params.get('bouquet');
+            
+            if (!data) return;
+            
+            // Поддержка старых ссылок
+            if (params.get('bouquet')) {
+                loadOldFormat(params.get('bouquet'));
+                return;
+            }
+            
+            try {
+                var parts = data.split('-');
+                if (parts.length < 2) throw new Error('Invalid format');
+                
+                // Парсим букет и цвет
+                currentFlowerIndex = parseInt(parts[0].replace('f', '')) || 0;
+                var bgMap = {'p': '#ffb6c1', 'r': '#dc143c', 'w': '#ffffff', 'c': currentBg};
+                currentBg = bgMap[parts[1]] || '#ffffff';
+                
+                document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+                document.getElementById('selectorImage').src = flowerImages[(currentFlowerIndex + 1) % flowerImages.length];
+                document.body.style.backgroundColor = currentBg;
+                
+                // Определяем где URLы (последняя часть с ~)
+                var urlPart = parts[parts.length - 1];
+                var from = 'Anonymous';
+                var to = 'Someone special';
+                
+                // Если частей 3+: f3-p-urls (без имен)
+                // Если частей 4+: f3-p-Mike-urls или f3-p-Mike-Anna-urls
+                if (parts.length === 4 && !parts[2].includes('~')) {
+                    from = parts[2];
+                } else if (parts.length >= 5) {
+                    from = parts[2];
+                    to = parts[3];
                 }
-            });
-        } else if (urlPart) {
-            // Одна ссылка без разделителя
-            createLinkCard(decompressURL(urlPart));
+                
+                // Распаковываем URLы
+                if (urlPart && urlPart.includes('~')) {
+                    var compressedUrls = urlPart.split('~');
+                    compressedUrls.forEach(function(comp) {
+                        var linkParts = comp.split('@');
+                        var url = decompressURL(linkParts[0]);
+                        var coords = linkParts[1] ? linkParts[1].split(',') : null;
+                        if (coords && coords.length === 4) {
+                            var x = parseInt(coords[0]);
+                            var y = parseInt(coords[1]);
+                            var s = parseInt(coords[2]) / 10;
+                            var r = parseInt(coords[3]);
+                            createLinkCard(url, x, y, s, r);
+                        } else {
+                            createLinkCard(url);
+                        }
+                    });
+                } else if (urlPart) {
+                    // Одна ссылка без разделителя
+                    var singleParts = urlPart.split('@');
+                    var url = decompressURL(singleParts[0]);
+                    if (singleParts[1]) {
+                        var coords = singleParts[1].split(',');
+                        createLinkCard(url, parseInt(coords[0]), parseInt(coords[1]), parseInt(coords[2])/10, parseInt(coords[3]));
+                    } else {
+                        createLinkCard(url);
+                    }
+                }
+                
+                showGiftModal(from, to);
+                
+                // Активируем кнопку сохранить
+                if (document.querySelectorAll('.link-card').length > 0) {
+                    saveShareBtn.classList.add('active');
+                }
+                
+            } catch (e) {
+                console.error('Failed to load bouquet:', e);
+            }
         }
-        
-        showGiftModal(from, to);
-        
-        // Активируем кнопку сохранить
-        if (document.querySelectorAll('.link-card').length > 0) {
-            saveShareBtn.classList.add('active');
-        }
-        
-    } catch (e) {
-        console.error('Failed to load bouquet:', e);
-    }
-}
 
         function decompressURL(comp) {
             return comp
