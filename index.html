@@ -1213,10 +1213,8 @@
         var sidebar = document.getElementById('sidebar');
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Сначала проверяем URL параметры
             var hasBouquetData = loadFromURL();
             
-            // Если нет данных букета, показываем начальное состояние
             if (!hasBouquetData) {
                 document.getElementById('bouquetImage').src = flowerImages[0];
                 document.getElementById('selectorImage').src = flowerImages[1];
@@ -1265,7 +1263,31 @@
             infoModal.addEventListener('click', function(e) {
                 if (e.target === infoModal) closeInfoModal();
             });
+
+            window.addEventListener('resize', handleResize);
         });
+
+        function handleResize() {
+            if (isReadOnly && links.length > 0) {
+                var canvasRect = canvasArea.getBoundingClientRect();
+                var cards = document.querySelectorAll('.link-card');
+                
+                cards.forEach(function(card, index) {
+                    if (links[index]) {
+                        var newX = links[index].relX * canvasRect.width;
+                        var newY = links[index].relY * canvasRect.height;
+                        
+                        card.style.left = newX + 'px';
+                        card.style.top = newY + 'px';
+                        
+                        if (cardPositions[index]) {
+                            cardPositions[index].x = newX;
+                            cardPositions[index].y = newY;
+                        }
+                    }
+                });
+            }
+        }
 
         function closeResultModal() {
             resultModal.classList.remove('active');
@@ -1547,18 +1569,27 @@
             }
         }
 
-        // Создаем карточку синхронно, без ожидания метаданных
-        function createLinkCard(url, x, y, scale, rotation) {
+        function createLinkCard(url, relX, relY, scale, rotation) {
             var canvasRect = canvasArea.getBoundingClientRect();
             var isMobile = window.innerWidth <= 768;
             var cardWidth = isMobile ? 140 : 200;
             var cardHeight = isMobile ? 100 : 140;
 
             var pos;
-            if (x !== undefined && y !== undefined) {
-                pos = { x: x, y: y };
+            var finalRelX, finalRelY;
+            
+            if (relX !== undefined && relY !== undefined) {
+                pos = { 
+                    x: relX * canvasRect.width, 
+                    y: relY * canvasRect.height 
+                };
+                finalRelX = relX;
+                finalRelY = relY;
             } else {
-                pos = findGoodPosition();
+                var pixelPos = findGoodPosition();
+                pos = pixelPos;
+                finalRelX = pixelPos.x / canvasRect.width;
+                finalRelY = pixelPos.y / canvasRect.height;
             }
             
             cardPositions.push(pos);
@@ -1576,7 +1607,6 @@
             card.style.height = cardHeight + 'px';
             card.style.transform = 'translate(-50%, -50%) scale(' + cardScale + ')';
 
-            // Создаем базовую структуру карточки сразу
             var domain = '';
             try {
                 var urlObj = new URL(url);
@@ -1593,14 +1623,12 @@
                     '</svg>' +
                 '</div>';
 
-            // Показываем сразу с favicon и заголовком домена
             var faviconUrl = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128';
             card.innerHTML = 
                 '<img class="card-image" src="' + faviconUrl + '" alt="" onerror="this.style.display=\'none\'">' +
                 '<div class="card-title">' + (domain || url) + '</div>' +
                 actionsHtml;
 
-            // Добавляем обработчики
             if (!isReadOnly) {
                 var deleteBtn = card.querySelector('.delete-btn');
                 if (deleteBtn) {
@@ -1647,7 +1675,6 @@
 
             canvasArea.appendChild(card);
 
-            // Асинхронно загружаем метаданные и обновляем карточку
             fetchMetadata(url).then(function(meta) {
                 updateCardContent(card, meta, url);
             }).catch(function(err) {
@@ -1656,8 +1683,8 @@
 
             links.push({ 
                 url: url, 
-                x: pos.x, 
-                y: pos.y, 
+                relX: finalRelX,
+                relY: finalRelY,
                 scale: cardScale,
                 rotation: cardRotation
             });
@@ -1692,7 +1719,6 @@
         }
 
         function updateCardContent(card, meta, url) {
-            // Обновляем только изображение и заголовок, не пересоздаем всю карточку
             var imageUrl = meta.image || 'https://www.google.com/s2/favicons?domain=' + meta.domain + '&sz=128';
             var title = meta.title || meta.domain || url;
             
@@ -1735,11 +1761,10 @@
                 var newX = e.clientX - canvasRect.left - dragOffsetX;
                 var newY = e.clientY - canvasRect.top - dragOffsetY;
                 
-                var isMobile = window.innerWidth <= 768;
-                var minX = isMobile ? 70 : 120;
-                var minY = isMobile ? 70 : 100;
-                var maxX = isMobile ? canvasRect.width - 70 : canvasRect.width - 120;
-                var maxY = isMobile ? canvasRect.height - 70 : canvasRect.height - 100;
+                var minX = canvasRect.width * 0.08;
+                var minY = canvasRect.height * 0.08;
+                var maxX = canvasRect.width * 0.92;
+                var maxY = canvasRect.height * 0.92;
                 
                 newX = Math.max(minX, Math.min(maxX, newX));
                 newY = Math.max(minY, Math.min(maxY, newY));
@@ -1775,11 +1800,10 @@
                 var newX = touch.clientX - canvasRect.left - dragOffsetX;
                 var newY = touch.clientY - canvasRect.top - dragOffsetY;
                 
-                var isMobile = window.innerWidth <= 768;
-                var minX = isMobile ? 70 : 120;
-                var minY = isMobile ? 70 : 100;
-                var maxX = isMobile ? canvasRect.width - 70 : canvasRect.width - 120;
-                var maxY = isMobile ? canvasRect.height - 70 : canvasRect.height - 100;
+                var minX = canvasRect.width * 0.08;
+                var minY = canvasRect.height * 0.08;
+                var maxX = canvasRect.width * 0.92;
+                var maxY = canvasRect.height * 0.92;
                 
                 newX = Math.max(minX, Math.min(maxX, newX));
                 newY = Math.max(minY, Math.min(maxY, newY));
@@ -1812,9 +1836,15 @@
             if (draggedElement) {
                 draggedElement.classList.remove('dragging');
                 var idx = Array.from(document.querySelectorAll('.link-card')).indexOf(draggedElement);
-                if (idx > -1 && cardPositions[idx]) {
-                    cardPositions[idx].x = parseFloat(draggedElement.style.left);
-                    cardPositions[idx].y = parseFloat(draggedElement.style.top);
+                if (idx > -1 && links[idx]) {
+                    var canvasRect = canvasArea.getBoundingClientRect();
+                    links[idx].relX = parseFloat(draggedElement.style.left) / canvasRect.width;
+                    links[idx].relY = parseFloat(draggedElement.style.top) / canvasRect.height;
+                    
+                    if (cardPositions[idx]) {
+                        cardPositions[idx].x = parseFloat(draggedElement.style.left);
+                        cardPositions[idx].y = parseFloat(draggedElement.style.top);
+                    }
                 }
             }
             isDragging = false;
@@ -1836,16 +1866,12 @@
             shareModal.classList.remove('active');
         }
 
-        // ИСПРАВЛЕННАЯ функция сжатия URL - используем base64 вместо опасных замен
         function compressURL(url) {
-            // Убираем протокол
             var clean = url.replace(/^https?:\/\//, '');
             
-            // Кодируем в base64 чтобы избежать проблем с точками и спецсимволами
             try {
                 return btoa(encodeURIComponent(clean));
             } catch(e) {
-                // Fallback если base64 не сработал
                 return clean
                     .replace(/youtube\.com\/watch\?v=/g, 'YT~')
                     .replace(/youtu\.be\//g, 'YB~')
@@ -1869,16 +1895,18 @@
             else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c' + currentBg.replace('#', '');
             
             var urls = [];
-            document.querySelectorAll('.link-card').forEach(function(card) {
+            document.querySelectorAll('.link-card').forEach(function(card, index) {
                 var url = card.dataset.url;
-                var left = Math.round(parseFloat(card.style.left));
-                var top = Math.round(parseFloat(card.style.top));
-                var transform = card.style.transform;
-                var scaleMatch = transform.match(/scale\(([^)]+)\)/);
-                var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
+                var linkData = links[index];
+                var relX = linkData ? linkData.relX : 0.5;
+                var relY = linkData ? linkData.relY : 0.5;
+                var s = Math.round(linkData.scale * 10) || 10;
+                
+                var xInt = Math.round(relX * 10000);
+                var yInt = Math.round(relY * 10000);
                 
                 var compressed = compressURL(url);
-                urls.push(compressed + ',' + left + ',' + top + ',' + s);
+                urls.push(compressed + ',' + xInt + ',' + yInt + ',' + s);
             });
             
             var parts = [currentFlowerIndex.toString(), bgCode];
@@ -1899,7 +1927,6 @@
             var from = document.getElementById('fromInput').value.trim() || 'Anon';
             var to = document.getElementById('toInput').value.trim() || 'You';
             
-            // Пробуем использовать Web Share API для мобильных устройств
             if (navigator.share) {
                 try {
                     await navigator.share({
@@ -1910,12 +1937,10 @@
                     showToast('Shared successfully!');
                     return;
                 } catch (err) {
-                    // Если пользователь отменил или произошла ошибка, переходим к копированию
                     console.log('Share canceled or failed:', err);
                 }
             }
             
-            // Fallback на копирование в буфер обмена
             try {
                 await navigator.clipboard.writeText(url);
                 copyBtn.textContent = 'Скопировано';
@@ -1944,14 +1969,11 @@
             window.location.href = window.location.pathname;
         }
 
-        // ИСПРАВЛЕННАЯ функция распаковки URL
         function decompressURL(comp) {
             try {
-                // Пробуем декодировать base64
                 var decoded = decodeURIComponent(atob(comp));
                 return 'https://' + decoded;
             } catch(e) {
-                // Fallback для старых ссылок
                 var url = comp
                     .replace(/YT~/g, 'youtube.com/watch?v=')
                     .replace(/YB~/g, 'youtu.be/')
@@ -1996,8 +2018,6 @@
                 var from = '', to = '';
                 var urlIndex = 2;
                 
-                // Проверяем, есть ли имена отправителя/получателя
-                // Имя не должно содержать | и должно быть коротким
                 if (parts.length > 2 && !parts[2].includes('|') && parts[2].length < 20 && !parts[2].includes(',')) {
                     from = parts[2];
                     urlIndex = 3;
@@ -2007,19 +2027,15 @@
                     urlIndex = 4;
                 }
                 
-                // Собираем все оставшиеся части в строку ссылок
                 var urlPart = parts.slice(urlIndex).join('-');
                 console.log('URL part:', urlPart);
                 
-                // Скрываем приветственное сообщение сразу
                 welcomeMessage.style.display = 'none';
                 canvasArea.classList.add('has-cards');
                 
-                // Устанавливаем режим только для чтения
                 setupReadOnlyMode(from, to);
                 document.body.style.backgroundColor = currentBg;
                 
-                // Парсим и создаем карточки
                 if (urlPart && urlPart.includes('|')) {
                     var compressedUrls = urlPart.split('|');
                     console.log('Compressed URLs:', compressedUrls);
@@ -2027,25 +2043,26 @@
                     compressedUrls.forEach(function(comp, index) {
                         if (!comp.trim()) return;
                         
-                        // Используем запятую как разделитель (не точку!)
                         var urlParts = comp.split(',');
                         console.log('URL parts for card ' + index + ':', urlParts);
                         
-                        // Минимум 4 части: url, x, y, scale
                         if (urlParts.length >= 4) {
                             var compressedUrl = urlParts[0];
-                            var x = parseInt(urlParts[1]);
-                            var y = parseInt(urlParts[2]);
+                            var xInt = parseInt(urlParts[1]);
+                            var yInt = parseInt(urlParts[2]);
                             var s = parseInt(urlParts[3]) / 10;
+                            
+                            var relX = xInt / 10000;
+                            var relY = yInt / 10000;
                             
                             try {
                                 var url = decompressURL(compressedUrl);
-                                console.log('Creating card:', url, x, y, s);
+                                console.log('Creating card:', url, relX, relY, s);
                                 
-                                if (url && !isNaN(x) && !isNaN(y) && !isNaN(s)) {
-                                    createLinkCard(url, x, y, s, 0);
+                                if (url && !isNaN(relX) && !isNaN(relY) && !isNaN(s)) {
+                                    createLinkCard(url, relX, relY, s, 0);
                                 } else {
-                                    console.error('Invalid card data:', url, x, y, s);
+                                    console.error('Invalid card data:', url, relX, relY, s);
                                 }
                             } catch(e) {
                                 console.error('Failed to decompress URL:', compressedUrl, e);
@@ -2058,7 +2075,6 @@
                     console.error('No URLs found in data');
                 }
                 
-                // Показываем модальное окно подарка
                 showGiftModal(from || 'Аноним', to || 'вас');
                 
                 return true;
@@ -2080,13 +2096,14 @@
                 currentBg = data.bg || '#ffffff';
                 document.body.style.backgroundColor = currentBg;
 
-                // Скрываем приветственное сообщение
                 welcomeMessage.style.display = 'none';
                 canvasArea.classList.add('has-cards');
 
                 if (data.links && data.links.length > 0) {
                     data.links.forEach(function(link) {
-                        createLinkCard(link.url, link.x, link.y, link.scale, link.rotation);
+                        var relX = link.x / 1050;
+                        var relY = link.y / 1200;
+                        createLinkCard(link.url, relX, relY, link.scale, link.rotation);
                     });
                 }
 
@@ -2100,23 +2117,19 @@
         function setupReadOnlyMode(from, to) {
             isReadOnly = true;
             
-            // Скрываем приветственное сообщение
             welcomeMessage.style.display = 'none';
             canvasArea.classList.add('has-cards');
             
-            // Меняем сайдбар на кнопку создания нового букета
             sidebar.innerHTML = 
                 '<button class="action-btn create-own-btn" id="btnCreateOwn">' +
                     'Создать<br>свой букет' +
                 '</button>';
             document.getElementById('btnCreateOwn').addEventListener('click', createNew);
             
-            // Скрываем иконку информации
             infoIcon.style.display = 'none';
         }
 
         function showGiftModal(from, to) {
-            // Удаляем существующее модальное окно если есть
             var existingModal = document.getElementById('giftModal');
             if (existingModal) existingModal.remove();
             
@@ -2137,12 +2150,10 @@
                 '</div>';
             document.body.appendChild(modal);
             
-            // Обработчик кнопки
             document.getElementById('btnOpenGift').addEventListener('click', function() {
                 modal.remove();
             });
             
-            // Закрытие по клику вне модалки
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) modal.remove();
             });
