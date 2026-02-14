@@ -1844,6 +1844,29 @@
             shareModal.classList.remove('active');
         }
 
+        function compressURL(url) {
+    // Сначала специфичные замены (до удаления .com)
+            var compressed = url
+                .replace(/^https?:\/\//, '')
+                .replace(/^www\./, '')
+                .replace(/youtube\.com\/watch\?v=/, 'yt~')
+                .replace(/youtu\.be\//, 'yt~')
+                .replace(/spotify\.com\/track\//, 'sp~')
+                .replace(/tiktok\.com\//, 'tt~')
+                .replace(/instagram\.com\//, 'ig~')
+                .replace(/avito\.ru\//, 'av~');
+
+            // Потом общие замены доменов (только если ещё не заменено)
+            if (!compressed.includes('~')) {
+                compressed = compressed
+                    .replace(/\.com$/, '~c')
+                    .replace(/\.ru$/, '~r')
+                    .replace(/\.net$/, '~n')
+                    .replace(/\.org$/, '~o');
+            }
+            
+            return compressed;
+        }
         function generateShareLink() {
             var from = document.getElementById('fromInput').value.trim() || 'Anon';
             var to = document.getElementById('toInput').value.trim() || 'You';
@@ -1862,20 +1885,14 @@
                 var scaleMatch = transform.match(/scale\(([^)]+)\)/);
                 var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
                 
-                // Сжимаем URL
                 var compressed = compressURL(url);
-                
-                // Экранируем спецсимволы для безопасности
-                compressed = encodeURIComponent(compressed);
-                
                 urls.push(compressed + '.' + left + '.' + top + '.' + s);
             });
             
             var parts = [currentFlowerIndex.toString(), bgCode];
             
-            // Имена только если не дефолтные
-            if (from !== 'Anon') parts.push(encodeURIComponent(from));
-            if (to !== 'You') parts.push(encodeURIComponent(to));
+            if (from !== 'Anon') parts.push(from.replace(/[^a-zA-Z0-9а-яА-Я]/g, '').substring(0, 10));
+            if (to !== 'You') parts.push(to.replace(/[^a-zA-Z0-9а-яА-Я]/g, '').substring(0, 10));
             
             parts.push(urls.join('!'));
             
@@ -1884,24 +1901,6 @@
             closeShareModal();
             resultModal.classList.add('active');
         }
-        async function shareOrCopy() {
-            var url = document.getElementById('shareUrlInput').value;
-            
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'Вам букетик!',
-                        text: 'Кто-то сделал уникальный букетик именно для вас.',
-                        url: url
-                    });
-                    showToast('Shared successfully!');
-                    return;
-                } catch(err) {
-                    if (err.name !== 'AbortError') {
-                        console.log('Share failed:', err);
-                    }
-                }
-            }
             
             try {
                 await navigator.clipboard.writeText(url);
@@ -1925,7 +1924,7 @@
                     copyBtn.classList.remove('copied');
                 }, 2000);
             }
-        }
+    
 
         function createNew() {
             window.location.href = window.location.pathname;
@@ -1972,26 +1971,12 @@
                 var from = '', to = '';
                 var urlIndex = 2;
                 
-                // Декодируем имена
-                if (parts.length > 2 && parts[2].includes('%')) {
-                    try {
-                        from = decodeURIComponent(parts[2]);
-                        urlIndex = 3;
-                    } catch(e) {}
-                }
-                if (parts.length > 3 && parts[3].includes('%')) {
-                    try {
-                        to = decodeURIComponent(parts[3]);
-                        urlIndex = 4;
-                    } catch(e) {}
-                }
-                
-                // Если имена не закодированы, проверяем как есть
-                if (!from && parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~')) {
+                // Проверяем есть ли имена (не содержат ! ~ .)
+                if (parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~') && !parts[2].includes('.')) {
                     from = parts[2];
                     urlIndex = 3;
                 }
-                if (!to && parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~')) {
+                if (parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~') && !parts[3].includes('.')) {
                     to = parts[3];
                     urlIndex = 4;
                 }
@@ -1999,14 +1984,12 @@
                 setupReadOnlyMode(from, to);
                 document.body.style.backgroundColor = currentBg;
                 
-                // Собираем обратно URL части (могут быть разделены неправильно)
+                // Собираем обратно URL части
                 var urlPart = parts.slice(urlIndex - 1).join('-');
                 
                 if (urlPart && urlPart.includes('!')) {
                     var compressedUrls = urlPart.split('!');
                     compressedUrls.forEach(function(comp) {
-                        // Декодируем
-                        comp = decodeURIComponent(comp);
                         var urlParts = comp.split('.');
                         var url = decompressURL(urlParts[0]);
                         if (urlParts.length >= 4) {
