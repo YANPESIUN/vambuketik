@@ -981,7 +981,7 @@
         <div class="info-icon" id="infoIcon">i</div>
 
         <div class="canvas-area" id="canvasArea">
-            <img src="flowers/flower1.png" 
+            <img src="" 
                  alt="Flower Bouquet" 
                  class="bouquet-image" 
                  id="bouquetImage">
@@ -996,7 +996,7 @@
 
         <div class="sidebar" id="sidebar">
             <div class="flower-selector" id="flowerSelector">
-                <img src="flowers/flower2.png" 
+                <img src="" 
                      alt="Change Flower" 
                      id="selectorImage">
                 <div class="flower-selector-overlay">
@@ -1140,19 +1140,45 @@
         var initialCardY = 0;
         var isReadOnly = false;
 
-        var flowerImages = [
-            'flowers/flower1.png',
-            'flowers/flower2.png',
-            'flowers/flower3.png',
-            'flowers/flower4.png',
-            'flowers/flower5.png',
-            'flowers/flower6.png',
-            'flowers/flower7.png',
-            'flowers/flower8.png',
-            'flowers/flower9.png',
-            'flowers/flower10.png',
-            'flowers/flower11.png'
+        var flowerImagesWebP = [
+            'webp/flower1.webp',
+            'webp/flower2.webp',
+            'webp/flower3.webp',
+            'webp/flower4.webp',
+            'webp/flower5.webp',
+            'webp/flower6.webp',
+            'webp/flower7.webp',
+            'webp/flower8.webp',
+            'webp/flower9.webp',
+            'webp/flower10.webp',
+            'webp/flower11.webp'
         ];
+
+        var flowerImagesPNG = [
+            'png/flower1.png',
+            'png/flower2.png',
+            'png/flower3.png',
+            'png/flower4.png',
+            'png/flower5.png',
+            'png/flower6.png',
+            'png/flower7.png',
+            'png/flower8.png',
+            'png/flower9.png',
+            'png/flower10.png',
+            'png/flower11.png'
+        ];
+
+        function checkWebPSupport() {
+            var canvas = document.createElement('canvas');
+            if (canvas.getContext && canvas.getContext('2d')) {
+                return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+            }
+            return false;
+        }
+
+        var supportsWebP = checkWebPSupport();
+        var flowerImages = supportsWebP ? flowerImagesWebP : flowerImagesPNG;
+ 
 
         var welcomeMessage = document.getElementById('welcomeMessage');
         var flowerSelector = document.getElementById('flowerSelector');
@@ -1186,6 +1212,8 @@
         var sidebar = document.getElementById('sidebar');
 
         document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('bouquetImage').src = flowerImages[0];
+            document.getElementById('selectorImage').src = flowerImages[1];
             logo.addEventListener('click', resetToHome);
             welcomeMessage.addEventListener('click', handleWelcomeClick);
             flowerSelector.addEventListener('click', changeFlower);
