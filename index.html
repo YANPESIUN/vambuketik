@@ -15,11 +15,10 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow: hidden;
             background: #ffffff;
             transition: background-color 0.3s ease;
-            touch-action: pan-y;
+            touch-action: none;
         }
 
         .container {
@@ -33,12 +32,14 @@
 
         .logo {
             position: absolute;
-            top: 30px;
-            left: 30px;
+            top: 15px;
+            left: 15px;
             z-index: 100;
             cursor: pointer;
             transition: transform 0.2s;
             line-height: 0;
+            width: auto;
+            height: auto;
         }
 
         .logo:hover {
@@ -46,10 +47,11 @@
         }
 
         .logo img {
-            height: 480px;
+            height: 240px;
             width: auto;
             object-fit: contain;
             display: block;
+            max-width: 400px;
         }
 
         .info-icon {
@@ -826,12 +828,13 @@
             }
 
             .logo {
-                top: 15px;
-                left: 15px;
+                top: 10px;
+                left: 10px;
             }
 
             .logo img {
-                height: 120px;
+                height: 100px;
+                max-width: 200px;
             }
 
             .info-icon {
@@ -843,8 +846,8 @@
             }
 
             .canvas-area {
-                width: 150%;
-                height: calc(150vh - 150px);
+                width: 100%;
+                height: calc(100vh - 180px);
                 padding: 60px 10px 100px 10px;
                 transform: translateY(75px);
             }
@@ -1483,7 +1486,7 @@
             cardPositions.push(pos);
             
             var cardScale = scale || (isMobile ? 0.8 + Math.random() * 0.2 : 0.9 + Math.random() * 0.3);
-            var cardRotation = rotation || (Math.random() - 0.5) * 20;
+            var cardRotation = rotation || 0;
 
             var card = document.createElement('div');
             card.className = 'link-card';
@@ -1492,7 +1495,7 @@
             card.style.top = pos.y + 'px';
             card.style.width = cardWidth + 'px';
             card.style.height = cardHeight + 'px';
-            card.style.transform = 'translate(-50%, -50%) rotate(' + cardRotation + 'deg) scale(' + cardScale + ')';
+            card.style.transform = 'translate(-50%, -50%) scale(' + cardScale + ')';
 
             card.innerHTML = 
                 '<div class="loading-state">⟳</div>' +
@@ -1675,10 +1678,7 @@
                 var currentScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
                 var newScale = Math.max(0.5, Math.min(3, currentScale + delta));
                 
-                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
-                var rotation = rotateMatch ? rotateMatch[1] : '0deg';
-                
-                resizeElement.style.transform = 'translate(-50%, -50%) rotate(' + rotation + ') scale(' + newScale + ')';
+                resizeElement.style.transform = 'translate(-50%, -50%) scale(' + newScale + ')';
             }
         }
 
@@ -1722,10 +1722,7 @@
                 var newScale = Math.max(0.5, Math.min(3, distance / baseDistance));
                 
                 var transform = resizeElement.style.transform;
-                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
-                var rotation = rotateMatch ? rotateMatch[1] : '0deg';
-                
-                resizeElement.style.transform = 'translate(-50%, -50%) rotate(' + rotation + ') scale(' + newScale + ')';
+                resizeElement.style.transform = 'translate(-50%, -50%) scale(' + newScale + ')';
             }
         }
 
@@ -1777,7 +1774,7 @@
                 var scaleMatch = transform.match(/scale\(([^)]+)\)/);
                 var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
                 var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
-                var r = rotateMatch ? Math.round(parseFloat(rotateMatch[1])) : 0;
+                var r = 0;
                 
                 var compressed = url
                     .replace(/^https?:\/\//, '')
@@ -1913,8 +1910,7 @@
                             var x = parseInt(coords[0]);
                             var y = parseInt(coords[1]);
                             var s = parseInt(coords[2]) / 10;
-                            var r = parseInt(coords[3]);
-                            createLinkCard(url, x, y, s, r);
+                            createLinkCard(url, x, y, s, 0);
                         } else {
                             createLinkCard(url);
                         }
@@ -1925,7 +1921,7 @@
                     var url = decompressURL(singleParts[0]);
                     if (singleParts[1]) {
                         var coords = singleParts[1].split(',');
-                        createLinkCard(url, parseInt(coords[0]), parseInt(coords[1]), parseInt(coords[2])/10, parseInt(coords[3]));
+                        createLinkCard(url, parseInt(coords[0]), parseInt(coords[1]), parseInt(coords[2])/10, 0);
                     } else {
                         createLinkCard(url);
                     }
