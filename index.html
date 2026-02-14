@@ -896,8 +896,9 @@
             }
 
             .link-card {
-                width: 140px;
-                height: 100px;
+                /* Размер будет задаваться через JS пропорционально букету */
+                min-width: 100px;
+                min-height: 70px;
             }
 
             .card-title {
@@ -1280,6 +1281,12 @@
                 var imgRect = getBouquetImageRect();
                 var cards = document.querySelectorAll('.link-card');
                 
+                // Пересчитываем размер карточки
+                var baseCardWidth = imgRect.width * 0.25;
+                var baseCardHeight = baseCardWidth * 0.7;
+                var cardWidth = Math.max(120, Math.min(280, baseCardWidth));
+                var cardHeight = Math.max(84, Math.min(196, baseCardHeight));
+                
                 cards.forEach(function(card, index) {
                     if (links[index]) {
                         var newX = links[index].relX * imgRect.width + imgRect.left - canvasArea.getBoundingClientRect().left;
@@ -1287,6 +1294,8 @@
                         
                         card.style.left = newX + 'px';
                         card.style.top = newY + 'px';
+                        card.style.width = cardWidth + 'px';
+                        card.style.height = cardHeight + 'px';
                         
                         if (cardPositions[index]) {
                             cardPositions[index].x = newX;
@@ -1580,9 +1589,14 @@
         function createLinkCard(url, relX, relY, scale, rotation) {
             var canvasRect = canvasArea.getBoundingClientRect();
             var imgRect = getBouquetImageRect();
-            var isMobile = window.innerWidth <= 768;
-            var cardWidth = isMobile ? 140 : 200;
-            var cardHeight = isMobile ? 100 : 140;
+            
+            // Размер карточки относительно размера изображения букета
+            // Базовый размер: 25% от ширины букета
+            var baseCardWidth = imgRect.width * 0.25;
+            var baseCardHeight = baseCardWidth * 0.7; // соотношение сторон 1:0.7
+            
+            var cardWidth = Math.max(120, Math.min(280, baseCardWidth)); // ограничения 120-280px
+            var cardHeight = Math.max(84, Math.min(196, baseCardHeight)); // ограничения 84-196px
 
             var pos;
             var finalRelX, finalRelY;
@@ -1608,7 +1622,7 @@
             
             cardPositions.push(pos);
             
-            var cardScale = scale || (isMobile ? 0.8 + Math.random() * 0.2 : 0.9 + Math.random() * 0.3);
+            var cardScale = scale || (0.9 + Math.random() * 0.3); // Убрана разница между мобильным и ПК
             var cardRotation = rotation || 0;
 
             var card = document.createElement('div');
