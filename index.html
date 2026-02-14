@@ -1141,7 +1141,6 @@
         var initialCardX = 0;
         var initialCardY = 0;
         var isReadOnly = false;
-        var pendingLinks = []; // Очередь ссылок для загрузки
 
         var flowerImagesWebP = [
             'webp/flower1.webp',
@@ -1837,26 +1836,27 @@
             shareModal.classList.remove('active');
         }
 
+        // ИСПРАВЛЕННАЯ функция сжатия URL - используем base64 вместо опасных замен
         function compressURL(url) {
-            var compressed = url
-                .replace(/^https?:\/\//, '')
-                .replace(/^www\./, '')
-                .replace(/youtube\.com\/watch\?v=/, 'yt~')
-                .replace(/youtu\.be\//, 'yt~')
-                .replace(/spotify\.com\/track\//, 'sp~')
-                .replace(/tiktok\.com\//, 'tt~')
-                .replace(/instagram\.com\//, 'ig~')
-                .replace(/avito\.ru\//, 'av~');
-
-            if (!compressed.includes('~')) {
-                compressed = compressed
-                    .replace(/\.com$/, '~c')
-                    .replace(/\.ru$/, '~r')
-                    .replace(/\.net$/, '~n')
-                    .replace(/\.org$/, '~o');
-            }
+            // Убираем протокол
+            var clean = url.replace(/^https?:\/\//, '');
             
-            return compressed;
+            // Кодируем в base64 чтобы избежать проблем с точками и спецсимволами
+            try {
+                return btoa(encodeURIComponent(clean));
+            } catch(e) {
+                // Fallback если base64 не сработал
+                return clean
+                    .replace(/youtube\.com\/watch\?v=/g, 'YT~')
+                    .replace(/youtu\.be\//g, 'YB~')
+                    .replace(/spotify\.com\/track\//g, 'SP~')
+                    .replace(/tiktok\.com\//g, 'TT~')
+                    .replace(/instagram\.com\//g, 'IG~')
+                    .replace(/\.com\//g, '~c/')
+                    .replace(/\.ru\//g, '~r/')
+                    .replace(/\.net\//g, '~n/')
+                    .replace(/\.org\//g, '~o/');
+            }
         }
 
         function generateShareLink() {
@@ -1878,7 +1878,7 @@
                 var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
                 
                 var compressed = compressURL(url);
-                urls.push(compressed + '.' + left + '.' + top + '.' + s);
+                urls.push(compressed + ',' + left + ',' + top + ',' + s);
             });
             
             var parts = [currentFlowerIndex.toString(), bgCode];
@@ -1886,7 +1886,7 @@
             if (from !== 'Anon') parts.push(from.replace(/[^a-zA-Z0-9а-яА-Я]/g, '').substring(0, 10));
             if (to !== 'You') parts.push(to.replace(/[^a-zA-Z0-9а-яА-Я]/g, '').substring(0, 10));
             
-            parts.push(urls.join('!'));
+            parts.push(urls.join('|'));
             
             var shareUrl = window.location.origin + window.location.pathname + '?b=' + parts.join('-');
             document.getElementById('shareUrlInput').value = shareUrl;
@@ -1944,22 +1944,30 @@
             window.location.href = window.location.pathname;
         }
 
+        // ИСПРАВЛЕННАЯ функция распаковки URL
         function decompressURL(comp) {
-            var url = comp
-                .replace(/yt~/, 'youtube.com/watch?v=')
-                .replace(/sp~/, 'spotify.com/track/')
-                .replace(/tt~/, 'tiktok.com/')
-                .replace(/ig~/, 'instagram.com/')
-                .replace(/av~/, 'avito.ru/')
-                .replace(/~c$/, '.com')
-                .replace(/~r$/, '.ru')
-                .replace(/~net$/, '.net')
-                .replace(/~org$/, '.org');
-            
-            if (!url.startsWith('http')) {
-                url = 'https://' + url;
+            try {
+                // Пробуем декодировать base64
+                var decoded = decodeURIComponent(atob(comp));
+                return 'https://' + decoded;
+            } catch(e) {
+                // Fallback для старых ссылок
+                var url = comp
+                    .replace(/YT~/g, 'youtube.com/watch?v=')
+                    .replace(/YB~/g, 'youtu.be/')
+                    .replace(/SP~/g, 'spotify.com/track/')
+                    .replace(/TT~/g, 'tiktok.com/')
+                    .replace(/IG~/g, 'instagram.com/')
+                    .replace(/~c\//g, '.com/')
+                    .replace(/~r\//g, '.ru/')
+                    .replace(/~n\//g, '.net/')
+                    .replace(/~o\//g, '.org/');
+                
+                if (!url.startsWith('http')) {
+                    url = 'https://' + url;
+                }
+                return url;
             }
-            return url;
         }
 
         function loadFromURL() {
@@ -1989,12 +1997,12 @@
                 var urlIndex = 2;
                 
                 // Проверяем, есть ли имена отправителя/получателя
-                // Имя не должно содержать ! ~ . и должно быть коротким
-                if (parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~') && parts[2].length < 20) {
+                // Имя не должно содержать | и должно быть коротким
+                if (parts.length > 2 && !parts[2].includes('|') && parts[2].length < 20 && !parts[2].includes(',')) {
                     from = parts[2];
                     urlIndex = 3;
                 }
-                if (parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~') && parts[3].length < 20) {
+                if (parts.length > 3 && !parts[3].includes('|') && parts[3].length < 20 && !parts[3].includes(',')) {
                     to = parts[3];
                     urlIndex = 4;
                 }
@@ -2012,14 +2020,15 @@
                 document.body.style.backgroundColor = currentBg;
                 
                 // Парсим и создаем карточки
-                if (urlPart && urlPart.includes('!')) {
-                    var compressedUrls = urlPart.split('!');
+                if (urlPart && urlPart.includes('|')) {
+                    var compressedUrls = urlPart.split('|');
                     console.log('Compressed URLs:', compressedUrls);
                     
                     compressedUrls.forEach(function(comp, index) {
                         if (!comp.trim()) return;
                         
-                        var urlParts = comp.split('.');
+                        // Используем запятую как разделитель (не точку!)
+                        var urlParts = comp.split(',');
                         console.log('URL parts for card ' + index + ':', urlParts);
                         
                         // Минимум 4 части: url, x, y, scale
@@ -2029,13 +2038,17 @@
                             var y = parseInt(urlParts[2]);
                             var s = parseInt(urlParts[3]) / 10;
                             
-                            var url = decompressURL(compressedUrl);
-                            console.log('Creating card:', url, x, y, s);
-                            
-                            if (url && !isNaN(x) && !isNaN(y) && !isNaN(s)) {
-                                createLinkCard(url, x, y, s, 0);
-                            } else {
-                                console.error('Invalid card data:', url, x, y, s);
+                            try {
+                                var url = decompressURL(compressedUrl);
+                                console.log('Creating card:', url, x, y, s);
+                                
+                                if (url && !isNaN(x) && !isNaN(y) && !isNaN(s)) {
+                                    createLinkCard(url, x, y, s, 0);
+                                } else {
+                                    console.error('Invalid card data:', url, x, y, s);
+                                }
+                            } catch(e) {
+                                console.error('Failed to decompress URL:', compressedUrl, e);
                             }
                         } else {
                             console.error('Not enough parts in URL:', comp);
