@@ -1178,7 +1178,6 @@
 
         var supportsWebP = checkWebPSupport();
         var flowerImages = supportsWebP ? flowerImagesWebP : flowerImagesPNG;
- 
 
         var welcomeMessage = document.getElementById('welcomeMessage');
         var flowerSelector = document.getElementById('flowerSelector');
@@ -1335,7 +1334,6 @@
                 domain = urlObj.hostname.replace('www.', '');
             } catch(e) {}
             
-            // Пробуем microlink
             try {
                 const response = await fetch('https://api.microlink.io/?url=' + encodeURIComponent(url));
                 const data = await response.json();
@@ -1343,7 +1341,6 @@
                 if (data.data) {
                     var image = data.data.image?.url || data.data.logo?.url || null;
                     
-                    // Если нет картинки, пробуем Open Graph
                     if (!image && data.data.open_graph?.images?.[0]?.url) {
                         image = data.data.open_graph.images[0].url;
                     }
@@ -1358,7 +1355,6 @@
                 console.error('Microlink error:', e);
             }
             
-            // Fallback: favicon + домен как заголовок
             return {
                 title: domain || url,
                 image: 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=256',
@@ -1845,7 +1841,6 @@
         }
 
         function compressURL(url) {
-    // Сначала специфичные замены (до удаления .com)
             var compressed = url
                 .replace(/^https?:\/\//, '')
                 .replace(/^www\./, '')
@@ -1856,7 +1851,6 @@
                 .replace(/instagram\.com\//, 'ig~')
                 .replace(/avito\.ru\//, 'av~');
 
-            // Потом общие замены доменов (только если ещё не заменено)
             if (!compressed.includes('~')) {
                 compressed = compressed
                     .replace(/\.com$/, '~c')
@@ -1867,6 +1861,7 @@
             
             return compressed;
         }
+
         function generateShareLink() {
             var from = document.getElementById('fromInput').value.trim() || 'Anon';
             var to = document.getElementById('toInput').value.trim() || 'You';
@@ -1901,6 +1896,9 @@
             closeShareModal();
             resultModal.classList.add('active');
         }
+
+        async function shareOrCopy() {
+            var url = document.getElementById('shareUrlInput').value;
             
             try {
                 await navigator.clipboard.writeText(url);
@@ -1924,7 +1922,7 @@
                     copyBtn.classList.remove('copied');
                 }, 2000);
             }
-    
+        }
 
         function createNew() {
             window.location.href = window.location.pathname;
@@ -1971,7 +1969,6 @@
                 var from = '', to = '';
                 var urlIndex = 2;
                 
-                // Проверяем есть ли имена (не содержат ! ~ .)
                 if (parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~') && !parts[2].includes('.')) {
                     from = parts[2];
                     urlIndex = 3;
@@ -1984,7 +1981,6 @@
                 setupReadOnlyMode(from, to);
                 document.body.style.backgroundColor = currentBg;
                 
-                // Собираем обратно URL части
                 var urlPart = parts.slice(urlIndex - 1).join('-');
                 
                 if (urlPart && urlPart.includes('!')) {
