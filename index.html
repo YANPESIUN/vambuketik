@@ -1860,16 +1860,20 @@
                 var compressed = url
                     .replace(/^https?:\/\//, '')
                     .replace(/^www\./, '')
-                    .replace(/\.com$/, '~c')
-                    .replace(/\.ru$/, '~r')
-                    .replace(/\.net$/, '~n')
-                    .replace(/\.org$/, '~o')
                     .replace(/youtube\.com\/watch\?v=/, 'yt~')
                     .replace(/youtu\.be\//, 'yt~')
                     .replace(/spotify\.com\/track\//, 'sp~')
                     .replace(/tiktok\.com\//, 'tt~')
                     .replace(/instagram\.com\//, 'ig~')
                     .replace(/avito\.ru\//, 'av~');
+
+                if (!compressed.includes('~')) {
+                    compressed = compressed
+                        .replace(/\.com$/, '~c')
+                        .replace(/\.ru$/, '~r')
+                        .replace(/\.net$/, '~n')
+                        .replace(/\.org$/, '~o');
+                }
                 
                 urls.push(compressed + '@' + left + ',' + top + ',' + s);
             });
@@ -1936,18 +1940,17 @@
 
         function decompressURL(comp) {
             var url = comp
-                .replace(/^/, 'https://')
-                .replace(/~c$/, '.com')
-                .replace(/~r$/, '.ru')
-                .replace(/~n$/, '.net')
-                .replace(/~o$/, '.org')
                 .replace(/yt~/, 'youtube.com/watch?v=')
                 .replace(/sp~/, 'spotify.com/track/')
                 .replace(/tt~/, 'tiktok.com/')
                 .replace(/ig~/, 'instagram.com/')
-                .replace(/av~/, 'avito.ru/');
+                .replace(/av~/, 'avito.ru/')
+                .replace(/~c$/, '.com')
+                .replace(/~r$/, '.ru')
+                .replace(/~n$/, '.net')
+                .replace(/~o$/, '.org');
             
-            if (!url.startsWith('https://')) {
+            if (!url.startsWith('http')) {
                 url = 'https://' + url;
             }
             return url;
