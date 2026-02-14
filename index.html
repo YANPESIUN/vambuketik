@@ -15,10 +15,11 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
             background: #ffffff;
             transition: background-color 0.3s ease;
-            touch-action: none;
+            touch-action: pan-y;
         }
 
         .container {
@@ -73,11 +74,12 @@
 
         .canvas-area {
             position: relative;
-            width: 700px;
-            height: 800px;
+            width: 1050px;
+            height: 1200px;
             display: flex;
             justify-content: center;
             align-items: center;
+            transform: translateY(100px);
         }
 
         .canvas-area.has-cards {
@@ -836,9 +838,10 @@
             }
 
             .canvas-area {
-                width: 100%;
-                height: calc(100vh - 180px);
+                width: 150%;
+                height: calc(150vh - 150px);
                 padding: 60px 10px 100px 10px;
+                transform: translateY(75px);
             }
 
             .welcome-message {
