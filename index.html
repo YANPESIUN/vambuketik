@@ -1141,6 +1141,7 @@
         var initialCardX = 0;
         var initialCardY = 0;
         var isReadOnly = false;
+        var bouquetImageElement = null;
 
         var flowerImagesWebP = [
             'webp/flower1.webp',
@@ -1213,10 +1214,12 @@
         var sidebar = document.getElementById('sidebar');
 
         document.addEventListener('DOMContentLoaded', function() {
+            bouquetImageElement = document.getElementById('bouquetImage');
+            
             var hasBouquetData = loadFromURL();
             
             if (!hasBouquetData) {
-                document.getElementById('bouquetImage').src = flowerImages[0];
+                bouquetImageElement.src = flowerImages[0];
                 document.getElementById('selectorImage').src = flowerImages[1];
             }
             
@@ -1267,15 +1270,20 @@
             window.addEventListener('resize', handleResize);
         });
 
+        function getBouquetImageRect() {
+            if (!bouquetImageElement) return canvasArea.getBoundingClientRect();
+            return bouquetImageElement.getBoundingClientRect();
+        }
+
         function handleResize() {
             if (isReadOnly && links.length > 0) {
-                var canvasRect = canvasArea.getBoundingClientRect();
+                var imgRect = getBouquetImageRect();
                 var cards = document.querySelectorAll('.link-card');
                 
                 cards.forEach(function(card, index) {
                     if (links[index]) {
-                        var newX = links[index].relX * canvasRect.width;
-                        var newY = links[index].relY * canvasRect.height;
+                        var newX = links[index].relX * imgRect.width + imgRect.left - canvasArea.getBoundingClientRect().left;
+                        var newY = links[index].relY * imgRect.height + imgRect.top - canvasArea.getBoundingClientRect().top;
                         
                         card.style.left = newX + 'px';
                         card.style.top = newY + 'px';
@@ -1392,9 +1400,9 @@
         }
 
         function findGoodPosition() {
-            var canvasRect = canvasArea.getBoundingClientRect();
-            var centerX = canvasRect.width / 2;
-            var centerY = canvasRect.height / 2;
+            var imgRect = getBouquetImageRect();
+            var centerX = imgRect.width / 2;
+            var centerY = imgRect.height / 2;
             
             if (cardPositions.length === 0) {
                 return {
@@ -1412,8 +1420,8 @@
                 var testX = centerX + Math.cos(angle) * radius;
                 var testY = centerY + Math.sin(angle) * radius;
                 
-                testX = Math.max(80, Math.min(canvasRect.width - 80, testX));
-                testY = Math.max(80, Math.min(canvasRect.height - 80, testY));
+                testX = Math.max(80, Math.min(imgRect.width - 80, testX));
+                testY = Math.max(80, Math.min(imgRect.height - 80, testY));
                 
                 var totalOverlap = 0;
                 for (var j = 0; j < cardPositions.length; j++) {
@@ -1440,7 +1448,7 @@
             if (isReadOnly) return;
             currentFlowerIndex = (currentFlowerIndex + 1) % flowerImages.length;
             var previewIndex = (currentFlowerIndex + 1) % flowerImages.length;
-            document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+            bouquetImageElement.src = flowerImages[currentFlowerIndex];
             document.getElementById('selectorImage').src = flowerImages[previewIndex];
         }
 
@@ -1571,6 +1579,7 @@
 
         function createLinkCard(url, relX, relY, scale, rotation) {
             var canvasRect = canvasArea.getBoundingClientRect();
+            var imgRect = getBouquetImageRect();
             var isMobile = window.innerWidth <= 768;
             var cardWidth = isMobile ? 140 : 200;
             var cardHeight = isMobile ? 100 : 140;
@@ -1579,17 +1588,22 @@
             var finalRelX, finalRelY;
             
             if (relX !== undefined && relY !== undefined) {
-                pos = { 
-                    x: relX * canvasRect.width, 
-                    y: relY * canvasRect.height 
-                };
+                // Конвертируем относительные координаты (0-1 от размера изображения) в пиксели канваса
+                var canvasX = relX * imgRect.width + (imgRect.left - canvasRect.left);
+                var canvasY = relY * imgRect.height + (imgRect.top - canvasRect.top);
+                pos = { x: canvasX, y: canvasY };
                 finalRelX = relX;
                 finalRelY = relY;
             } else {
-                var pixelPos = findGoodPosition();
-                pos = pixelPos;
-                finalRelX = pixelPos.x / canvasRect.width;
-                finalRelY = pixelPos.y / canvasRect.height;
+                // Для новых карточек — находим позицию относительно изображения
+                var imgPos = findGoodPosition();
+                // Конвертируем в координаты канваса
+                var canvasX = imgPos.x + (imgRect.left - canvasRect.left);
+                var canvasY = imgPos.y + (imgRect.top - canvasRect.top);
+                pos = { x: canvasX, y: canvasY };
+                // Сохраняем относительные координаты (относительно изображения)
+                finalRelX = imgPos.x / imgRect.width;
+                finalRelY = imgPos.y / imgRect.height;
             }
             
             cardPositions.push(pos);
@@ -1758,13 +1772,15 @@
                 hasDragged = true;
                 
                 var canvasRect = canvasArea.getBoundingClientRect();
+                var imgRect = getBouquetImageRect();
                 var newX = e.clientX - canvasRect.left - dragOffsetX;
                 var newY = e.clientY - canvasRect.top - dragOffsetY;
                 
-                var minX = canvasRect.width * 0.08;
-                var minY = canvasRect.height * 0.08;
-                var maxX = canvasRect.width * 0.92;
-                var maxY = canvasRect.height * 0.92;
+                // Ограничения в пределах изображения букета
+                var minX = imgRect.left - canvasRect.left + imgRect.width * 0.08;
+                var minY = imgRect.top - canvasRect.top + imgRect.height * 0.08;
+                var maxX = imgRect.left - canvasRect.left + imgRect.width * 0.92;
+                var maxY = imgRect.top - canvasRect.top + imgRect.height * 0.92;
                 
                 newX = Math.max(minX, Math.min(maxX, newX));
                 newY = Math.max(minY, Math.min(maxY, newY));
@@ -1797,13 +1813,14 @@
                 
                 var touch = e.touches[0];
                 var canvasRect = canvasArea.getBoundingClientRect();
+                var imgRect = getBouquetImageRect();
                 var newX = touch.clientX - canvasRect.left - dragOffsetX;
                 var newY = touch.clientY - canvasRect.top - dragOffsetY;
                 
-                var minX = canvasRect.width * 0.08;
-                var minY = canvasRect.height * 0.08;
-                var maxX = canvasRect.width * 0.92;
-                var maxY = canvasRect.height * 0.92;
+                var minX = imgRect.left - canvasRect.left + imgRect.width * 0.08;
+                var minY = imgRect.top - canvasRect.top + imgRect.height * 0.08;
+                var maxX = imgRect.left - canvasRect.left + imgRect.width * 0.92;
+                var maxY = imgRect.top - canvasRect.top + imgRect.height * 0.92;
                 
                 newX = Math.max(minX, Math.min(maxX, newX));
                 newY = Math.max(minY, Math.min(maxY, newY));
@@ -1838,12 +1855,18 @@
                 var idx = Array.from(document.querySelectorAll('.link-card')).indexOf(draggedElement);
                 if (idx > -1 && links[idx]) {
                     var canvasRect = canvasArea.getBoundingClientRect();
-                    links[idx].relX = parseFloat(draggedElement.style.left) / canvasRect.width;
-                    links[idx].relY = parseFloat(draggedElement.style.top) / canvasRect.height;
+                    var imgRect = getBouquetImageRect();
+                    
+                    // Конвертируем пиксельные координаты канваса обратно в относительные (относительно изображения)
+                    var canvasX = parseFloat(draggedElement.style.left);
+                    var canvasY = parseFloat(draggedElement.style.top);
+                    
+                    links[idx].relX = (canvasX - (imgRect.left - canvasRect.left)) / imgRect.width;
+                    links[idx].relY = (canvasY - (imgRect.top - canvasRect.top)) / imgRect.height;
                     
                     if (cardPositions[idx]) {
-                        cardPositions[idx].x = parseFloat(draggedElement.style.left);
-                        cardPositions[idx].y = parseFloat(draggedElement.style.top);
+                        cardPositions[idx].x = canvasX;
+                        cardPositions[idx].y = canvasY;
                     }
                 }
             }
@@ -2013,7 +2036,7 @@
                 else if (bgCode === 'w') currentBg = '#ffffff';
                 else if (bgCode.startsWith('c')) currentBg = '#' + bgCode.slice(1);
                 
-                document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+                bouquetImageElement.src = flowerImages[currentFlowerIndex];
                 
                 var from = '', to = '';
                 var urlIndex = 2;
@@ -2036,43 +2059,51 @@
                 setupReadOnlyMode(from, to);
                 document.body.style.backgroundColor = currentBg;
                 
-                if (urlPart && urlPart.includes('|')) {
-                    var compressedUrls = urlPart.split('|');
-                    console.log('Compressed URLs:', compressedUrls);
-                    
-                    compressedUrls.forEach(function(comp, index) {
-                        if (!comp.trim()) return;
+                // Ждем загрузки изображения перед созданием карточек
+                bouquetImageElement.onload = function() {
+                    if (urlPart && urlPart.includes('|')) {
+                        var compressedUrls = urlPart.split('|');
+                        console.log('Compressed URLs:', compressedUrls);
                         
-                        var urlParts = comp.split(',');
-                        console.log('URL parts for card ' + index + ':', urlParts);
-                        
-                        if (urlParts.length >= 4) {
-                            var compressedUrl = urlParts[0];
-                            var xInt = parseInt(urlParts[1]);
-                            var yInt = parseInt(urlParts[2]);
-                            var s = parseInt(urlParts[3]) / 10;
+                        compressedUrls.forEach(function(comp, index) {
+                            if (!comp.trim()) return;
                             
-                            var relX = xInt / 10000;
-                            var relY = yInt / 10000;
+                            var urlParts = comp.split(',');
+                            console.log('URL parts for card ' + index + ':', urlParts);
                             
-                            try {
-                                var url = decompressURL(compressedUrl);
-                                console.log('Creating card:', url, relX, relY, s);
+                            if (urlParts.length >= 4) {
+                                var compressedUrl = urlParts[0];
+                                var xInt = parseInt(urlParts[1]);
+                                var yInt = parseInt(urlParts[2]);
+                                var s = parseInt(urlParts[3]) / 10;
                                 
-                                if (url && !isNaN(relX) && !isNaN(relY) && !isNaN(s)) {
-                                    createLinkCard(url, relX, relY, s, 0);
-                                } else {
-                                    console.error('Invalid card data:', url, relX, relY, s);
+                                var relX = xInt / 10000;
+                                var relY = yInt / 10000;
+                                
+                                try {
+                                    var url = decompressURL(compressedUrl);
+                                    console.log('Creating card:', url, relX, relY, s);
+                                    
+                                    if (url && !isNaN(relX) && !isNaN(relY) && !isNaN(s)) {
+                                        createLinkCard(url, relX, relY, s, 0);
+                                    } else {
+                                        console.error('Invalid card data:', url, relX, relY, s);
+                                    }
+                                } catch(e) {
+                                    console.error('Failed to decompress URL:', compressedUrl, e);
                                 }
-                            } catch(e) {
-                                console.error('Failed to decompress URL:', compressedUrl, e);
+                            } else {
+                                console.error('Not enough parts in URL:', comp);
                             }
-                        } else {
-                            console.error('Not enough parts in URL:', comp);
-                        }
-                    });
-                } else {
-                    console.error('No URLs found in data');
+                        });
+                    } else {
+                        console.error('No URLs found in data');
+                    }
+                };
+                
+                // Если изображение уже загружено (из кэша)
+                if (bouquetImageElement.complete) {
+                    bouquetImageElement.onload();
                 }
                 
                 showGiftModal(from || 'Аноним', to || 'вас');
@@ -2091,7 +2122,7 @@
                 var data = JSON.parse(jsonStr);
                 
                 currentFlowerIndex = data.flower || 0;
-                document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+                bouquetImageElement.src = flowerImages[currentFlowerIndex];
                 document.getElementById('selectorImage').src = flowerImages[currentFlowerIndex];
                 currentBg = data.bg || '#ffffff';
                 document.body.style.backgroundColor = currentBg;
@@ -2101,6 +2132,7 @@
 
                 if (data.links && data.links.length > 0) {
                     data.links.forEach(function(link) {
+                        // Конвертируем старые абсолютные координаты в относительные
                         var relX = link.x / 1050;
                         var relY = link.y / 1200;
                         createLinkCard(link.url, relX, relY, link.scale, link.rotation);
