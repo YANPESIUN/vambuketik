@@ -153,8 +153,16 @@
             touch-action: none;
         }
 
+        .link-card.read-only {
+            cursor: pointer;
+        }
+
         .link-card:active {
             cursor: grabbing;
+        }
+
+        .link-card.read-only:active {
+            cursor: pointer;
         }
 
         .link-card.dragging {
@@ -522,6 +530,19 @@
             box-shadow: 0 4px 12px rgba(233,30,99,0.3);
         }
 
+        .create-own-btn {
+            background: #e91e63;
+            color: white;
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .create-own-btn:hover {
+            background: #c2185b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(233,30,99,0.3);
+        }
+
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -882,7 +903,6 @@
                 padding: 16px 8px 6px;
             }
 
-            /* ИСПРАВЛЕНО: кнопки всегда видны на мобильных */
             .card-actions {
                 opacity: 1;
                 pointer-events: all;
@@ -974,7 +994,7 @@
             </div>
         </div>
 
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="flower-selector" id="flowerSelector">
                 <img src="flowers/flower2.png" 
                      alt="Change Flower" 
@@ -1118,6 +1138,7 @@
         var touchStartY = 0;
         var initialCardX = 0;
         var initialCardY = 0;
+        var isReadOnly = false;
 
         var flowerImages = [
             'flowers/flower1.png',
@@ -1162,6 +1183,7 @@
         var infoIcon = document.getElementById('infoIcon');
         var btnCloseInfo = document.getElementById('btnCloseInfo');
         var toast = document.getElementById('toast');
+        var sidebar = document.getElementById('sidebar');
 
         document.addEventListener('DOMContentLoaded', function() {
             logo.addEventListener('click', resetToHome);
@@ -1177,7 +1199,7 @@
             btnAdd.addEventListener('click', addLink);
             btnBack.addEventListener('click', closeShareModal);
             btnSaveShare.addEventListener('click', generateShareLink);
-            copyBtn.addEventListener('click', copyLink);
+            copyBtn.addEventListener('click', shareOrCopy);
             btnCreateNew.addEventListener('click', createNew);
             btnRGB.addEventListener('click', function() { setColorMode('rgb'); });
             btnHEX.addEventListener('click', function() { setColorMode('hex'); });
@@ -1236,10 +1258,12 @@
         }
 
         function handleWelcomeClick() {
+            if (isReadOnly) return;
             checkClipboardAndCreate();
         }
 
         function handlePaste(e) {
+            if (isReadOnly) return;
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
             var text = e.clipboardData.getData('text');
@@ -1355,6 +1379,7 @@
         }
 
         function changeFlower() {
+            if (isReadOnly) return;
             currentFlowerIndex = (currentFlowerIndex + 1) % flowerImages.length;
             var previewIndex = (currentFlowerIndex + 1) % flowerImages.length;
             document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
@@ -1362,6 +1387,7 @@
         }
 
         function setBackground(color, btn) {
+            if (isReadOnly) return;
             currentBg = color;
             document.body.style.backgroundColor = color;
             document.querySelectorAll('.color-btn').forEach(function(b) {
@@ -1372,6 +1398,7 @@
         }
 
         function toggleColorPicker() {
+            if (isReadOnly) return;
             colorPickerPanel.classList.toggle('active');
             if (colorPickerPanel.classList.contains('active')) {
                 document.querySelectorAll('.color-btn').forEach(function(b) {
@@ -1463,6 +1490,7 @@
         });
 
         function openAddLinkModal() {
+            if (isReadOnly) return;
             addLinkModal.classList.add('active');
             urlInput.focus();
         }
@@ -1504,6 +1532,7 @@
 
             var card = document.createElement('div');
             card.className = 'link-card';
+            if (isReadOnly) card.classList.add('read-only');
             card.dataset.url = url;
             card.style.left = pos.x + 'px';
             card.style.top = pos.y + 'px';
@@ -1511,8 +1540,7 @@
             card.style.height = cardHeight + 'px';
             card.style.transform = 'translate(-50%, -50%) scale(' + cardScale + ')';
 
-            card.innerHTML = 
-                '<div class="loading-state">⟳</div>' +
+            var actionsHtml = isReadOnly ? '' : 
                 '<div class="card-actions">' +
                     '<button class="delete-btn" title="Remove">✕</button>' +
                 '</div>' +
@@ -1522,23 +1550,43 @@
                     '</svg>' +
                 '</div>';
 
-            var deleteBtn = card.querySelector('.delete-btn');
-            var resizeHandle = card.querySelector('.resize-handle');
+            card.innerHTML = 
+                '<div class="loading-state">⟳</div>' +
+                actionsHtml;
 
-            deleteBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                deleteCard(card, pos);
-            });
+            if (!isReadOnly) {
+                var deleteBtn = card.querySelector('.delete-btn');
+                var resizeHandle = card.querySelector('.resize-handle');
 
-            card.addEventListener('mousedown', function(e) {
-                if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
-                startDrag(e, card);
-            });
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    deleteCard(card, pos);
+                });
 
-            card.addEventListener('touchstart', function(e) {
-                if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
-                startDrag(e, card);
-            }, { passive: false });
+                card.addEventListener('mousedown', function(e) {
+                    if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
+                    startDrag(e, card);
+                });
+
+                card.addEventListener('touchstart', function(e) {
+                    if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
+                    startDrag(e, card);
+                }, { passive: false });
+
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    isResizing = true;
+                    resizeElement = card;
+                });
+
+                resizeHandle.addEventListener('touchstart', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    isResizing = true;
+                    resizeElement = card;
+                }, { passive: false });
+            }
 
             card.addEventListener('click', function(e) {
                 if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
@@ -1546,20 +1594,6 @@
                     window.open(url, '_blank');
                 }
             });
-
-            resizeHandle.addEventListener('mousedown', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                isResizing = true;
-                resizeElement = card;
-            });
-
-            resizeHandle.addEventListener('touchstart', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                isResizing = true;
-                resizeElement = card;
-            }, { passive: false });
 
             canvasArea.appendChild(card);
 
@@ -1580,6 +1614,7 @@
         }
 
         function startDrag(e, card) {
+            if (isReadOnly) return;
             e.preventDefault();
             isDragging = true;
             draggedElement = card;
@@ -1603,10 +1638,7 @@
         function updateCardContent(card, meta, url) {
             var imageUrl = meta.image || 'https://www.google.com/s2/favicons?domain=' + meta.domain + '&sz=128';
             
-            card.innerHTML = 
-                '<img class="card-image" src="' + imageUrl + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\'" alt="">' +
-                '<div class="error-state" style="display: none;">' + meta.title + '</div>' +
-                '<div class="card-title">' + meta.title + '</div>' +
+            var actionsHtml = isReadOnly ? '' : 
                 '<div class="card-actions">' +
                     '<button class="delete-btn" title="Remove">✕</button>' +
                 '</div>' +
@@ -1616,33 +1648,42 @@
                     '</svg>' +
                 '</div>';
 
-            card.querySelector('.delete-btn').addEventListener('click', function(e) {
-                e.stopPropagation();
-                var idx = cardPositions.findIndex(p => {
-                    var cardX = parseFloat(card.style.left);
-                    var cardY = parseFloat(card.style.top);
-                    return Math.abs(p.x - cardX) < 10 && Math.abs(p.y - cardY) < 10;
+            card.innerHTML = 
+                '<img class="card-image" src="' + imageUrl + '" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\'" alt="">' +
+                '<div class="error-state" style="display: none;">' + meta.title + '</div>' +
+                '<div class="card-title">' + meta.title + '</div>' +
+                actionsHtml;
+
+            if (!isReadOnly) {
+                card.querySelector('.delete-btn').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var idx = cardPositions.findIndex(p => {
+                        var cardX = parseFloat(card.style.left);
+                        var cardY = parseFloat(card.style.top);
+                        return Math.abs(p.x - cardX) < 10 && Math.abs(p.y - cardY) < 10;
+                    });
+                    deleteCard(card, idx > -1 ? cardPositions[idx] : null);
                 });
-                deleteCard(card, idx > -1 ? cardPositions[idx] : null);
-            });
 
-            var resizeHandle = card.querySelector('.resize-handle');
-            resizeHandle.addEventListener('mousedown', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                isResizing = true;
-                resizeElement = card;
-            });
+                var resizeHandle = card.querySelector('.resize-handle');
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    isResizing = true;
+                    resizeElement = card;
+                });
 
-            resizeHandle.addEventListener('touchstart', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                isResizing = true;
-                resizeElement = card;
-            }, { passive: false });
+                resizeHandle.addEventListener('touchstart', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    isResizing = true;
+                    resizeElement = card;
+                }, { passive: false });
+            }
         }
 
         function deleteCard(card, pos) {
+            if (isReadOnly) return;
             card.remove();
             if (pos) {
                 var idx = cardPositions.indexOf(pos);
@@ -1659,6 +1700,7 @@
         }
 
         function handleMouseMove(e) {
+            if (isReadOnly) return;
             if (isDragging && draggedElement) {
                 e.preventDefault();
                 hasDragged = true;
@@ -1697,6 +1739,7 @@
         }
 
         function handleTouchMove(e) {
+            if (isReadOnly) return;
             if (isDragging && draggedElement) {
                 e.preventDefault();
                 hasDragged = true;
@@ -1772,13 +1815,11 @@
             var from = document.getElementById('fromInput').value || 'Anon';
             var to = document.getElementById('toInput').value || 'You';
             
-            // Сокращаем цвет: pink=p, red=r, white=w, custom=c
             var bgCode = 'w';
             if (currentBg === '#ffb6c1' || currentBg === 'pink') bgCode = 'p';
             else if (currentBg === '#dc143c' || currentBg === 'red') bgCode = 'r';
             else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c';
             
-            // Собираем сжатые URLы с позициями
             var urls = [];
             document.querySelectorAll('.link-card').forEach(function(card) {
                 var url = card.dataset.url;
@@ -1786,9 +1827,7 @@
                 var top = Math.round(parseFloat(card.style.top));
                 var transform = card.style.transform;
                 var scaleMatch = transform.match(/scale\(([^)]+)\)/);
-                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
                 var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
-                var r = 0;
                 
                 var compressed = url
                     .replace(/^https?:\/\//, '')
@@ -1804,18 +1843,14 @@
                     .replace(/instagram\.com\//, 'ig~')
                     .replace(/avito\.ru\//, 'av~');
                 
-                // Формат: url@x,y,s,r
-                urls.push(compressed + '@' + left + ',' + top + ',' + s + ',' + r);
+                urls.push(compressed + '@' + left + ',' + top + ',' + s);
             });
             
-            // Формат: f3-p-Mike-Anna-url1~url2~url3
             var parts = ['f' + currentFlowerIndex, bgCode];
             
-            // Имена только если не дефолтные
             if (from !== 'Anon') parts.push(from.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
             if (to !== 'You') parts.push(to.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
             
-            // Добавляем URLы
             parts.push(urls.join('~'));
             
             var shareUrl = window.location.origin + window.location.pathname + '?b=' + parts.join('-');
@@ -1824,54 +1859,70 @@
             resultModal.classList.add('active');
         }
 
-        function copyLink() {
-            var input = document.getElementById('shareUrlInput');
-            input.select();
-            input.setSelectionRange(0, 99999);
-
-            navigator.clipboard.writeText(input.value).then(function() {
+        async function shareOrCopy() {
+            var url = document.getElementById('shareUrlInput').value;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Link Bouquet',
+                        text: 'Check out this link bouquet!',
+                        url: url
+                    });
+                    showToast('Shared successfully!');
+                    return;
+                } catch(err) {
+                    if (err.name !== 'AbortError') {
+                        console.log('Share failed:', err);
+                    }
+                }
+            }
+            
+            try {
+                await navigator.clipboard.writeText(url);
                 copyBtn.textContent = 'Скопировано';
                 copyBtn.classList.add('copied');
                 showToast('Link copied to clipboard!');
                 setTimeout(function() {
-                    copyBtn.textContent = 'Share';
+                    copyBtn.textContent = 'Поделиться';
                     copyBtn.classList.remove('copied');
                 }, 2000);
-            }).catch(function() {
+            } catch(err) {
+                var input = document.getElementById('shareUrlInput');
+                input.select();
+                input.setSelectionRange(0, 99999);
                 document.execCommand('copy');
                 copyBtn.textContent = 'Скопировано';
                 copyBtn.classList.add('copied');
                 showToast('Link copied to clipboard!');
                 setTimeout(function() {
-                    copyBtn.textContent = 'Share';
+                    copyBtn.textContent = 'Поделиться';
                     copyBtn.classList.remove('copied');
                 }, 2000);
-            });
+            }
         }
 
         function createNew() {
-            resultModal.classList.remove('active');
-            document.querySelectorAll('.link-card').forEach(function(card) {
-                card.remove();
-            });
-            links = [];
-            cardPositions = [];
-            welcomeMessage.style.display = 'block';
-            canvasArea.classList.remove('has-cards');
-            saveShareBtn.classList.remove('active');
-            document.getElementById('fromInput').value = '';
-            document.getElementById('toInput').value = '';
-            window.history.pushState({}, '', window.location.pathname);
-            currentFlowerIndex = 0;
-            var previewIndex = 1;
-            document.getElementById('bouquetImage').src = flowerImages[0];
-            document.getElementById('selectorImage').src = flowerImages[previewIndex];
-            currentBg = '#ffffff';
-            document.body.style.backgroundColor = currentBg;
-            document.querySelectorAll('.color-btn').forEach(function(b) {
-                b.classList.remove('active');
-            });
-            btnPink.classList.add('active');
+            window.location.href = window.location.pathname;
+        }
+
+        function decompressURL(comp) {
+            var url = comp
+                .replace(/^/, 'https://')
+                .replace(/~c$/, '.com')
+                .replace(/~r$/, '.ru')
+                .replace(/~n$/, '.net')
+                .replace(/~o$/, '.org')
+                .replace(/yt~/, 'youtube.com/watch?v=')
+                .replace(/sp~/, 'spotify.com/track/')
+                .replace(/tt~/, 'tiktok.com/')
+                .replace(/ig~/, 'instagram.com/')
+                .replace(/av~/, 'avito.ru/');
+            
+            if (!url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            return url;
         }
 
         function loadFromURL() {
@@ -1880,7 +1931,6 @@
             
             if (!data) return;
             
-            // Поддержка старых ссылок
             if (params.get('bouquet')) {
                 loadOldFormat(params.get('bouquet'));
                 return;
@@ -1890,7 +1940,6 @@
                 var parts = data.split('-');
                 if (parts.length < 2) throw new Error('Invalid format');
                 
-                // Парсим букет и цвет
                 currentFlowerIndex = parseInt(parts[0].replace('f', '')) || 0;
                 var bgMap = {'p': '#ffb6c1', 'r': '#dc143c', 'w': '#ffffff', 'c': currentBg};
                 currentBg = bgMap[parts[1]] || '#ffffff';
@@ -1899,13 +1948,10 @@
                 document.getElementById('selectorImage').src = flowerImages[(currentFlowerIndex + 1) % flowerImages.length];
                 document.body.style.backgroundColor = currentBg;
                 
-                // Определяем где URLы (последняя часть с ~)
                 var urlPart = parts[parts.length - 1];
                 var from = 'Anonymous';
                 var to = 'Someone special';
                 
-                // Если частей 3+: f3-p-urls (без имен)
-                // Если частей 4+: f3-p-Mike-urls или f3-p-Mike-Anna-urls
                 if (parts.length === 4 && !parts[2].includes('~')) {
                     from = parts[2];
                 } else if (parts.length >= 5) {
@@ -1913,14 +1959,13 @@
                     to = parts[3];
                 }
                 
-                // Распаковываем URLы
                 if (urlPart && urlPart.includes('~')) {
                     var compressedUrls = urlPart.split('~');
                     compressedUrls.forEach(function(comp) {
                         var linkParts = comp.split('@');
                         var url = decompressURL(linkParts[0]);
                         var coords = linkParts[1] ? linkParts[1].split(',') : null;
-                        if (coords && coords.length === 4) {
+                        if (coords && coords.length >= 3) {
                             var x = parseInt(coords[0]);
                             var y = parseInt(coords[1]);
                             var s = parseInt(coords[2]) / 10;
@@ -1930,7 +1975,6 @@
                         }
                     });
                 } else if (urlPart) {
-                    // Одна ссылка без разделителя
                     var singleParts = urlPart.split('@');
                     var url = decompressURL(singleParts[0]);
                     if (singleParts[1]) {
@@ -1942,33 +1986,14 @@
                 }
                 
                 showGiftModal(from, to);
-                
-                // Активируем кнопку сохранить
-                if (document.querySelectorAll('.link-card').length > 0) {
-                    saveShareBtn.classList.add('active');
-                }
+                setupReadOnlyMode(from, to);
                 
             } catch (e) {
                 console.error('Failed to load bouquet:', e);
             }
         }
 
-        function decompressURL(comp) {
-            return comp
-                .replace(/^/, 'https://')
-                .replace(/~c$/, '.com')
-                .replace(/~r$/, '.ru')
-                .replace(/~n$/, '.net')
-                .replace(/~o$/, '.org')
-                .replace(/yt~/, 'youtube.com/watch?v=')
-                .replace(/sp~/, 'spotify.com/track/')
-                .replace(/tt~/, 'tiktok.com/')
-                .replace(/ig~/, 'instagram.com/')
-                .replace(/av~/, 'avito.ru/');
-        }
-
         function loadOldFormat(bouquetData) {
-            // Старая функция для обратной совместимости
             try {
                 var jsonStr = decodeURIComponent(escape(atob(bouquetData)));
                 var data = JSON.parse(jsonStr);
@@ -1986,9 +2011,21 @@
                 }
 
                 showGiftModal(data.from || 'Anonymous', data.to || 'Someone special');
+                setupReadOnlyMode(data.from || 'Anonymous', data.to || 'Someone special');
             } catch (e) {
                 console.error('Failed to load old format:', e);
             }
+        }
+
+        function setupReadOnlyMode(from, to) {
+            isReadOnly = true;
+            sidebar.innerHTML = 
+                '<button class="action-btn create-own-btn" id="btnCreateOwn">' +
+                    'Создать<br>свой букет' +
+                '</button>';
+            document.getElementById('btnCreateOwn').addEventListener('click', createNew);
+            
+            infoIcon.style.display = 'none';
         }
 
         function showGiftModal(from, to) {
