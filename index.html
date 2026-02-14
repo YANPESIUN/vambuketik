@@ -1734,39 +1734,47 @@
         }
 
         function generateShareLink() {
-            var from = document.getElementById('fromInput').value || 'Anonymous';
-            var to = document.getElementById('toInput').value || 'Someone special';
+            var from = document.getElementById('fromInput').value || 'Anon';
+            var to = document.getElementById('toInput').value || 'You';
             
-            var cardsData = [];
+            // Сокращаем цвет: pink=p, red=r, white=w, custom=c
+            var bgCode = 'w';
+            if (currentBg === '#ffb6c1' || currentBg === 'pink') bgCode = 'p';
+            else if (currentBg === '#dc143c' || currentBg === 'red') bgCode = 'r';
+            else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c';
+            
+            // Собираем сжатые URLы
+            var urls = [];
             document.querySelectorAll('.link-card').forEach(function(card) {
                 var url = card.dataset.url;
-                var left = parseFloat(card.style.left);
-                var top = parseFloat(card.style.top);
-                var transform = card.style.transform;
-                var scaleMatch = transform.match(/scale\(([^)]+)\)/);
-                var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
-                
-                cardsData.push({
-                    url: url,
-                    x: left,
-                    y: top,
-                    scale: scaleMatch ? parseFloat(scaleMatch[1]) : 1,
-                    rotation: rotateMatch ? parseFloat(rotateMatch[1]) : 0
-                });
+                // Сжимаем URL: убираем https://, заменяем common parts
+                var compressed = url
+                    .replace(/^https?:\/\//, '')
+                    .replace(/^www\./, '')
+                    .replace(/\.com$/, '~c')
+                    .replace(/\.ru$/, '~r')
+                    .replace(/\.net$/, '~n')
+                    .replace(/\.org$/, '~o')
+                    .replace(/youtube\.com\/watch\?v=/, 'yt~')
+                    .replace(/youtu\.be\//, 'yt~')
+                    .replace(/spotify\.com\/track\//, 'sp~')
+                    .replace(/tiktok\.com\//, 'tt~')
+                    .replace(/instagram\.com\//, 'ig~')
+                    .replace(/avito\.ru\//, 'av~');
+                urls.push(compressed);
             });
-
-            var data = {
-                flower: currentFlowerIndex,
-                bg: currentBg,
-                from: from,
-                to: to,
-                links: cardsData
-            };
-
-            var jsonStr = JSON.stringify(data);
-            var encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-            var shareUrl = window.location.origin + window.location.pathname + '?bouquet=' + encoded;
-
+            
+            // Формат: f3-p-Mike-Anna-url1~url2~url3
+            var parts = ['f' + currentFlowerIndex, bgCode];
+            
+            // Имена только если не дефолтные
+            if (from !== 'Anon') parts.push(from.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
+            if (to !== 'You') parts.push(to.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
+            
+            // Добавляем URLы
+            parts.push(urls.join('~'));
+            
+            var shareUrl = window.location.origin + window.location.pathname + '?b=' + parts.join('-');
             document.getElementById('shareUrlInput').value = shareUrl;
             closeShareModal();
             resultModal.classList.add('active');
@@ -1822,34 +1830,104 @@
             btnPink.classList.add('active');
         }
 
-        function loadFromURL() {
-            var params = new URLSearchParams(window.location.search);
-            var bouquetData = params.get('bouquet');
+function loadFromURL() {
+    var params = new URLSearchParams(window.location.search);
+    var data = params.get('b') || params.get('bouquet');
+    
+    if (!data) return;
+    
+    // Поддержка старых ссылок
+    if (params.get('bouquet')) {
+        loadOldFormat(params.get('bouquet'));
+        return;
+    }
+    
+    try {
+        var parts = data.split('-');
+        if (parts.length < 2) throw new Error('Invalid format');
+        
+        // Парсим букет и цвет
+        currentFlowerIndex = parseInt(parts[0].replace('f', '')) || 0;
+        var bgMap = {'p': '#ffb6c1', 'r': '#dc143c', 'w': '#ffffff', 'c': currentBg};
+        currentBg = bgMap[parts[1]] || '#ffffff';
+        
+        document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+        document.getElementById('selectorImage').src = flowerImages[(currentFlowerIndex + 1) % flowerImages.length];
+        document.body.style.backgroundColor = currentBg;
+        
+        // Определяем где URLы (последняя часть с ~)
+        var urlPart = parts[parts.length - 1];
+        var from = 'Anonymous';
+        var to = 'Someone special';
+        
+        // Если частей 3+: f3-p-urls (без имен)
+        // Если частей 4+: f3-p-Mike-urls или f3-p-Mike-Anna-urls
+        if (parts.length === 4 && !parts[2].includes('~')) {
+            from = parts[2];
+        } else if (parts.length >= 5) {
+            from = parts[2];
+            to = parts[3];
+        }
+        
+        // Распаковываем URLы
+        if (urlPart && urlPart.includes('~')) {
+            var compressedUrls = urlPart.split('~');
+            compressedUrls.forEach(function(comp) {
+                var url = decompressURL(comp);
+                createLinkCard(url); // без координат — автопозиционирование
+            });
+        } else if (urlPart) {
+            // Одна ссылка без разделителя
+            createLinkCard(decompressURL(urlPart));
+        }
+        
+        showGiftModal(from, to);
+        
+        // Активируем кнопку сохранить
+        if (document.querySelectorAll('.link-card').length > 0) {
+            saveShareBtn.classList.add('active');
+        }
+        
+    } catch (e) {
+        console.error('Failed to load bouquet:', e);
+    }
+}
 
-            if (bouquetData) {
-                try {
-                    var jsonStr = decodeURIComponent(escape(atob(bouquetData)));
-                    var data = JSON.parse(jsonStr);
-                    
-                    currentFlowerIndex = data.flower || 0;
-                    document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
-                    document.getElementById('selectorImage').src = flowerImages[currentFlowerIndex];
-                    currentBg = data.bg || '#ffffff';
-                    document.body.style.backgroundColor = currentBg;
+        function decompressURL(comp) {
+            return comp
+                .replace(/^/, 'https://')
+                .replace(/~c$/, '.com')
+                .replace(/~r$/, '.ru')
+                .replace(/~n$/, '.net')
+                .replace(/~o$/, '.org')
+                .replace(/yt~/, 'youtube.com/watch?v=')
+                .replace(/sp~/, 'spotify.com/track/')
+                .replace(/tt~/, 'tiktok.com/')
+                .replace(/ig~/, 'instagram.com/')
+                .replace(/av~/, 'avito.ru/');
+        }
 
-                    var giftFrom = data.from || 'Anonymous';
-                    var giftTo = data.to || 'Someone special';
+        function loadOldFormat(bouquetData) {
+            // Старая функция для обратной совместимости
+            try {
+                var jsonStr = decodeURIComponent(escape(atob(bouquetData)));
+                var data = JSON.parse(jsonStr);
+                
+                currentFlowerIndex = data.flower || 0;
+                document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
+                document.getElementById('selectorImage').src = flowerImages[currentFlowerIndex];
+                currentBg = data.bg || '#ffffff';
+                document.body.style.backgroundColor = currentBg;
 
-                    if (data.links && data.links.length > 0) {
-                        data.links.forEach(function(link) {
-                            createLinkCard(link.url, link.x, link.y, link.scale, link.rotation);
-                        });
-                    }
-
-                    showGiftModal(giftFrom, giftTo);
-                } catch (e) {
-                    console.error('Failed to load bouquet:', e);
+                if (data.links && data.links.length > 0) {
+                    data.links.forEach(function(link) {
+                        createLinkCard(link.url, link.x, link.y, link.scale, link.rotation);
+                    });
                 }
+
+                showGiftModal(data.from || 'Anonymous', data.to || 'Someone special');
+            } catch (e) {
+                console.error('Failed to load old format:', e);
             }
         }
 
