@@ -184,8 +184,10 @@
 
         .card-actions {
             position: absolute;
-            top: -10px;
-            right: -10px;
+            top: 0;
+            right: 0;
+            width: 50px;
+            height: 50px;
             opacity: 0;
             transition: opacity 0.2s;
             pointer-events: none;
@@ -198,19 +200,23 @@
         }
 
         .delete-btn {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             border: 2px solid #EAEAEA;
-            background: rgba(230, 230, 230, 0.9);
+            background: rgba(230, 230, 230, 0.95);
             backdrop-filter: blur(4px);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #333;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-size: 16px;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 10;
         }
 
         .delete-btn:hover {
@@ -220,13 +226,13 @@
 
         .resize-handle {
             position: absolute;
-            bottom: -10px;
-            right: -10px;
-            width: 28px;
-            height: 28px;
+            bottom: 8px;
+            right: 8px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             border: 2px solid #EAEAEA;
-            background: rgba(230, 230, 230, 0.9);
+            background: rgba(230, 230, 230, 0.95);
             backdrop-filter: blur(4px);
             cursor: nwse-resize;
             display: flex;
@@ -234,7 +240,8 @@
             justify-content: center;
             opacity: 0;
             transition: opacity 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10;
         }
 
         .link-card:hover .resize-handle,
@@ -876,11 +883,21 @@
 
             .delete-btn,
             .resize-handle {
-                width: 24px;
-                height: 24px;
+                width: 32px;
+                height: 32px;
                 opacity: 1;
             }
 
+            .delete-btn {
+                top: 6px;
+                right: 6px;
+                font-size: 14px;
+            }
+
+            .resize-handle {
+                bottom: 6px;
+                right: 6px;
+            }
             .decorative-flower {
                 width: 40px;
                 height: 40px;
@@ -1490,12 +1507,12 @@
             });
 
             card.addEventListener('mousedown', function(e) {
-                if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
+                if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
                 startDrag(e, card);
             });
 
             card.addEventListener('touchstart', function(e) {
-                if (e.target.closest('.card-actions') || e.target.closest('.resize-handle')) return;
+                if (e.target.closest('.delete-btn') || e.target.closest('.resize-handle')) return;
                 startDrag(e, card);
             }, { passive: false });
 
@@ -1744,25 +1761,35 @@
             else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c';
             
             // Собираем сжатые URLы
-            var urls = [];
-            document.querySelectorAll('.link-card').forEach(function(card) {
-                var url = card.dataset.url;
-                // Сжимаем URL: убираем https://, заменяем common parts
-                var compressed = url
-                    .replace(/^https?:\/\//, '')
-                    .replace(/^www\./, '')
-                    .replace(/\.com$/, '~c')
-                    .replace(/\.ru$/, '~r')
-                    .replace(/\.net$/, '~n')
-                    .replace(/\.org$/, '~o')
-                    .replace(/youtube\.com\/watch\?v=/, 'yt~')
-                    .replace(/youtu\.be\//, 'yt~')
-                    .replace(/spotify\.com\/track\//, 'sp~')
-                    .replace(/tiktok\.com\//, 'tt~')
-                    .replace(/instagram\.com\//, 'ig~')
-                    .replace(/avito\.ru\//, 'av~');
-                urls.push(compressed);
-            });
+           // Собираем сжатые URLы с позициями
+        var urls = [];
+        document.querySelectorAll('.link-card').forEach(function(card) {
+            var url = card.dataset.url;
+            var left = Math.round(parseFloat(card.style.left));
+            var top = Math.round(parseFloat(card.style.top));
+            var transform = card.style.transform;
+            var scaleMatch = transform.match(/scale\(([^)]+)\)/);
+            var rotateMatch = transform.match(/rotate\(([^)]+)\)/);
+            var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
+            var r = rotateMatch ? Math.round(parseFloat(rotateMatch[1])) : 0;
+            
+            var compressed = url
+                .replace(/^https?:\/\//, '')
+                .replace(/^www\./, '')
+                .replace(/\.com$/, '~c')
+                .replace(/\.ru$/, '~r')
+                .replace(/\.net$/, '~n')
+                .replace(/\.org$/, '~o')
+                .replace(/youtube\.com\/watch\?v=/, 'yt~')
+                .replace(/youtu\.be\//, 'yt~')
+                .replace(/spotify\.com\/track\//, 'sp~')
+                .replace(/tiktok\.com\//, 'tt~')
+                .replace(/instagram\.com\//, 'ig~')
+                .replace(/avito\.ru\//, 'av~');
+            
+            // Формат: url@x,y,s,r
+            urls.push(compressed + '@' + left + ',' + top + ',' + s + ',' + r);
+        });
             
             // Формат: f3-p-Mike-Anna-url1~url2~url3
             var parts = ['f' + currentFlowerIndex, bgCode];
@@ -1873,8 +1900,18 @@ function loadFromURL() {
         if (urlPart && urlPart.includes('~')) {
             var compressedUrls = urlPart.split('~');
             compressedUrls.forEach(function(comp) {
-                var url = decompressURL(comp);
-                createLinkCard(url); // без координат — автопозиционирование
+                var parts = comp.split('@');
+                var url = decompressURL(parts[0]);
+                var coords = parts[1] ? parts[1].split(',') : null;
+                if (coords && coords.length === 4) {
+                    var x = parseInt(coords[0]);
+                    var y = parseInt(coords[1]);
+                    var s = parseInt(coords[2]) / 10;
+                    var r = parseInt(coords[3]);
+                    createLinkCard(url, x, y, s, r);
+                } else {
+                    createLinkCard(url);
+                }
             });
         } else if (urlPart) {
             // Одна ссылка без разделителя
