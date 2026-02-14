@@ -1329,36 +1329,41 @@
         }
 
         async function fetchMetadata(url) {
+            var domain = '';
+            try {
+                var urlObj = new URL(url);
+                domain = urlObj.hostname.replace('www.', '');
+            } catch(e) {}
+            
+            // Пробуем microlink
             try {
                 const response = await fetch('https://api.microlink.io/?url=' + encodeURIComponent(url));
                 const data = await response.json();
                 
                 if (data.data) {
+                    var image = data.data.image?.url || data.data.logo?.url || null;
+                    
+                    // Если нет картинки, пробуем Open Graph
+                    if (!image && data.data.open_graph?.images?.[0]?.url) {
+                        image = data.data.open_graph.images[0].url;
+                    }
+                    
                     return {
-                        title: data.data.title || data.data.description || url,
-                        image: data.data.image?.url || data.data.logo?.url || null,
-                        domain: new URL(url).hostname.replace('www.', '').split('.')[0]
+                        title: data.data.title || data.data.description || domain || url,
+                        image: image,
+                        domain: domain.split('.')[0]
                     };
                 }
             } catch (e) {
-                console.error('Fetch error:', e);
+                console.error('Microlink error:', e);
             }
             
-            try {
-                var urlObj = new URL(url);
-                var domain = urlObj.hostname.replace('www.', '');
-                return {
-                    title: domain,
-                    image: 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=128',
-                    domain: domain.split('.')[0]
-                };
-            } catch(e) {
-                return {
-                    title: url,
-                    image: null,
-                    domain: 'link'
-                };
-            }
+            // Fallback: favicon + домен как заголовок
+            return {
+                title: domain || url,
+                image: 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=256',
+                domain: domain.split('.')[0]
+            };
         }
 
         function findGoodPosition() {
@@ -1840,13 +1845,13 @@
         }
 
         function generateShareLink() {
-            var from = document.getElementById('fromInput').value || 'Anon';
-            var to = document.getElementById('toInput').value || 'You';
+            var from = document.getElementById('fromInput').value.trim() || 'Anon';
+            var to = document.getElementById('toInput').value.trim() || 'You';
             
             var bgCode = 'w';
             if (currentBg === '#ffb6c1' || currentBg === 'pink') bgCode = 'p';
             else if (currentBg === '#dc143c' || currentBg === 'red') bgCode = 'r';
-            else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c';
+            else if (currentBg !== '#ffffff' && currentBg !== 'white') bgCode = 'c' + currentBg.replace('#', '');
             
             var urls = [];
             document.querySelectorAll('.link-card').forEach(function(card) {
@@ -1857,40 +1862,28 @@
                 var scaleMatch = transform.match(/scale\(([^)]+)\)/);
                 var s = scaleMatch ? Math.round(parseFloat(scaleMatch[1]) * 10) : 10;
                 
-                var compressed = url
-                    .replace(/^https?:\/\//, '')
-                    .replace(/^www\./, '')
-                    .replace(/youtube\.com\/watch\?v=/, 'yt~')
-                    .replace(/youtu\.be\//, 'yt~')
-                    .replace(/spotify\.com\/track\//, 'sp~')
-                    .replace(/tiktok\.com\//, 'tt~')
-                    .replace(/instagram\.com\//, 'ig~')
-                    .replace(/avito\.ru\//, 'av~');
-
-                if (!compressed.includes('~')) {
-                    compressed = compressed
-                        .replace(/\.com$/, '~c')
-                        .replace(/\.ru$/, '~r')
-                        .replace(/\.net$/, '~n')
-                        .replace(/\.org$/, '~o');
-                }
+                // Сжимаем URL
+                var compressed = compressURL(url);
                 
-                urls.push(compressed + '@' + left + ',' + top + ',' + s);
+                // Экранируем спецсимволы для безопасности
+                compressed = encodeURIComponent(compressed);
+                
+                urls.push(compressed + '.' + left + '.' + top + '.' + s);
             });
             
-            var parts = ['f' + currentFlowerIndex, bgCode];
+            var parts = [currentFlowerIndex.toString(), bgCode];
             
-            if (from !== 'Anon') parts.push(from.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
-            if (to !== 'You') parts.push(to.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8));
+            // Имена только если не дефолтные
+            if (from !== 'Anon') parts.push(encodeURIComponent(from));
+            if (to !== 'You') parts.push(encodeURIComponent(to));
             
-            parts.push(urls.join('~'));
+            parts.push(urls.join('!'));
             
             var shareUrl = window.location.origin + window.location.pathname + '?b=' + parts.join('-');
             document.getElementById('shareUrlInput').value = shareUrl;
             closeShareModal();
             resultModal.classList.add('active');
         }
-
         async function shareOrCopy() {
             var url = document.getElementById('shareUrlInput').value;
             
@@ -1958,66 +1951,76 @@
 
         function loadFromURL() {
             var params = new URLSearchParams(window.location.search);
-            var data = params.get('b') || params.get('bouquet');
+            var data = params.get('b');
             
             if (!data) return;
-            
-            if (params.get('bouquet')) {
-                loadOldFormat(params.get('bouquet'));
-                return;
-            }
             
             try {
                 var parts = data.split('-');
                 if (parts.length < 2) throw new Error('Invalid format');
                 
-                currentFlowerIndex = parseInt(parts[0].replace('f', '')) || 0;
-                var bgMap = {'p': '#ffb6c1', 'r': '#dc143c', 'w': '#ffffff', 'c': currentBg};
-                currentBg = bgMap[parts[1]] || '#ffffff';
+                currentFlowerIndex = parseInt(parts[0]) || 0;
+                
+                var bgCode = parts[1];
+                if (bgCode === 'p') currentBg = '#ffb6c1';
+                else if (bgCode === 'r') currentBg = '#dc143c';
+                else if (bgCode === 'w') currentBg = '#ffffff';
+                else if (bgCode.startsWith('c')) currentBg = '#' + bgCode.slice(1);
                 
                 document.getElementById('bouquetImage').src = flowerImages[currentFlowerIndex];
-                document.getElementById('selectorImage').src = flowerImages[(currentFlowerIndex + 1) % flowerImages.length];
-                document.body.style.backgroundColor = currentBg;
                 
-                var urlPart = parts[parts.length - 1];
-                var from = 'Anonymous';
-                var to = 'Someone special';
+                var from = '', to = '';
+                var urlIndex = 2;
                 
-                if (parts.length === 4 && !parts[2].includes('~')) {
-                    from = parts[2];
-                } else if (parts.length >= 5) {
-                    from = parts[2];
-                    to = parts[3];
+                // Декодируем имена
+                if (parts.length > 2 && parts[2].includes('%')) {
+                    try {
+                        from = decodeURIComponent(parts[2]);
+                        urlIndex = 3;
+                    } catch(e) {}
+                }
+                if (parts.length > 3 && parts[3].includes('%')) {
+                    try {
+                        to = decodeURIComponent(parts[3]);
+                        urlIndex = 4;
+                    } catch(e) {}
                 }
                 
-                if (urlPart && urlPart.includes('~')) {
-                    var compressedUrls = urlPart.split('~');
+                // Если имена не закодированы, проверяем как есть
+                if (!from && parts.length > 2 && !parts[2].includes('!') && !parts[2].includes('~')) {
+                    from = parts[2];
+                    urlIndex = 3;
+                }
+                if (!to && parts.length > 3 && !parts[3].includes('!') && !parts[3].includes('~')) {
+                    to = parts[3];
+                    urlIndex = 4;
+                }
+                
+                setupReadOnlyMode(from, to);
+                document.body.style.backgroundColor = currentBg;
+                
+                // Собираем обратно URL части (могут быть разделены неправильно)
+                var urlPart = parts.slice(urlIndex - 1).join('-');
+                
+                if (urlPart && urlPart.includes('!')) {
+                    var compressedUrls = urlPart.split('!');
                     compressedUrls.forEach(function(comp) {
-                        var linkParts = comp.split('@');
-                        var url = decompressURL(linkParts[0]);
-                        var coords = linkParts[1] ? linkParts[1].split(',') : null;
-                        if (coords && coords.length >= 3) {
-                            var x = parseInt(coords[0]);
-                            var y = parseInt(coords[1]);
-                            var s = parseInt(coords[2]) / 10;
+                        // Декодируем
+                        comp = decodeURIComponent(comp);
+                        var urlParts = comp.split('.');
+                        var url = decompressURL(urlParts[0]);
+                        if (urlParts.length >= 4) {
+                            var x = parseInt(urlParts[1]);
+                            var y = parseInt(urlParts[2]);
+                            var s = parseInt(urlParts[3]) / 10;
                             createLinkCard(url, x, y, s, 0);
                         } else {
                             createLinkCard(url);
                         }
                     });
-                } else if (urlPart) {
-                    var singleParts = urlPart.split('@');
-                    var url = decompressURL(singleParts[0]);
-                    if (singleParts[1]) {
-                        var coords = singleParts[1].split(',');
-                        createLinkCard(url, parseInt(coords[0]), parseInt(coords[1]), parseInt(coords[2])/10, 0);
-                    } else {
-                        createLinkCard(url);
-                    }
                 }
                 
-                showGiftModal(from, to);
-                setupReadOnlyMode(from, to);
+                showGiftModal(from || 'Аноним', to || 'вас');
                 
             } catch (e) {
                 console.error('Failed to load bouquet:', e);
